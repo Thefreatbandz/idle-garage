@@ -39,15 +39,35 @@ const UPGRADES := [
 const COST_GROWTH := 1.15
 const MILESTONE_BONUS := 2.0  # x2 at 25/50/100/200 owned
 
-# Showroom cars: {name, cost, income (mult), speed (mult), style (pts/sec), move, color}
-# move: "drift" (normal), "spin" (360), "reverse" (reverse entry), "wall" (wall tap)
+# Showroom cars: {name, cost, income (mult), speed (mult), style (pts/sec), move, color, livery, rarity}
+# rarity: "regular" (+income), "rare" (+income/speed), "exotic" (+income/style),
+#         "legendary" (+income/speed/style, unique moves)
+# livery: "plain", "stripe", "number", "twotone"
 const CARS := [
-	{"name": "Rust Bucket", "cost": 0.0, "income": 1.0, "speed": 1.0, "style": 1.0, "move": "drift", "color": Color(0.55, 0.55, 0.58)},
-	{"name": "Street S13", "cost": 5000.0, "income": 1.3, "speed": 1.12, "style": 1.4, "move": "spin", "color": Color(0.25, 0.55, 0.95)},
-	{"name": "Drift AE86", "cost": 75000.0, "income": 1.7, "speed": 1.25, "style": 2.0, "move": "reverse", "color": Color(0.95, 0.95, 0.92)},
-	{"name": "Pro FD3S", "cost": 800000.0, "income": 2.2, "speed": 1.4, "style": 2.8, "move": "wall", "color": Color(0.95, 0.30, 0.25)},
-	{"name": "Legend R34", "cost": 8000000.0, "income": 3.0, "speed": 1.6, "style": 4.0, "move": "spin", "color": Color(0.35, 0.45, 0.95)},
+	# REGULAR — honest income
+	{"name": "Rust Bucket", "cost": 0.0, "income": 1.0, "speed": 1.0, "style": 1.0, "move": "drift", "color": Color(0.55, 0.55, 0.58), "livery": "plain", "rarity": "regular"},
+	{"name": "Daily Beater", "cost": 2000.0, "income": 1.15, "speed": 1.05, "style": 1.1, "move": "drift", "color": Color(0.45, 0.60, 0.70), "livery": "plain", "rarity": "regular"},
+	{"name": "Street S13", "cost": 5000.0, "income": 1.3, "speed": 1.12, "style": 1.4, "move": "spin", "color": Color(0.25, 0.55, 0.95), "livery": "stripe", "rarity": "regular"},
+	# RARE — income + speed
+	{"name": "Drift AE86", "cost": 75000.0, "income": 1.7, "speed": 1.25, "style": 2.0, "move": "reverse", "color": Color(0.95, 0.95, 0.92), "livery": "twotone", "rarity": "rare"},
+	{"name": "Turbo FC", "cost": 200000.0, "income": 1.9, "speed": 1.32, "style": 2.2, "move": "spin", "color": Color(0.90, 0.55, 0.20), "livery": "stripe", "rarity": "rare"},
+	{"name": "Grip R32", "cost": 400000.0, "income": 2.0, "speed": 1.38, "style": 2.4, "move": "reverse", "color": Color(0.30, 0.35, 0.45), "livery": "number", "rarity": "rare"},
+	# EXOTIC — income + style (faster HEAT)
+	{"name": "Pro FD3S", "cost": 800000.0, "income": 2.2, "speed": 1.4, "style": 2.8, "move": "wall", "color": Color(0.95, 0.30, 0.25), "livery": "number", "rarity": "exotic"},
+	{"name": "Carbon Supra", "cost": 2000000.0, "income": 2.5, "speed": 1.45, "style": 3.2, "move": "spin", "color": Color(0.20, 0.20, 0.22), "livery": "stripe", "rarity": "exotic"},
+	{"name": "Widebody NSX", "cost": 4000000.0, "income": 2.7, "speed": 1.5, "style": 3.5, "move": "reverse", "color": Color(0.95, 0.75, 0.20), "livery": "twotone", "rarity": "exotic"},
+	# LEGENDARY — everything, unique moves
+	{"name": "Legend R34", "cost": 8000000.0, "income": 3.0, "speed": 1.6, "style": 4.0, "move": "spin", "color": Color(0.35, 0.45, 0.95), "livery": "number", "rarity": "legendary"},
+	{"name": "Midnight S15", "cost": 15000000.0, "income": 3.5, "speed": 1.7, "style": 4.5, "move": "wall", "color": Color(0.15, 0.10, 0.35), "livery": "stripe", "rarity": "legendary"},
+	{"name": "Godzilla R35", "cost": 30000000.0, "income": 4.0, "speed": 1.8, "style": 5.0, "move": "spin", "color": Color(0.90, 0.90, 0.92), "livery": "number", "rarity": "legendary"},
 ]
+
+const RARITY_COLORS := {
+	"regular": Color(0.60, 0.62, 0.65),
+	"rare": Color(0.65, 0.40, 0.95),
+	"exotic": Color(1.0, 0.75, 0.25),
+	"legendary": Color(1.0, 0.35, 0.45),
+}
 
 # Achievements: {name, desc, kind, target, bonus}
 # kind: "lifetime" (earn X lifetime), "owned" (own X of generator idx),

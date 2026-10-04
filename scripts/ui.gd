@@ -249,7 +249,7 @@ func _build_crew_panel() -> void:
 		var idx := i
 		btn.pressed.connect(func(): game.buy_mechanic(idx))
 		vb.add_child(hb)
-		_mech_btns.append({"label": nl, "btn": btn})
+		_mech_btns.append({"label": nl, "btn": btn, "idx": i})
 
 func _build_shop_panel() -> void:
 	var p: ScrollContainer = _panels[2]
@@ -289,12 +289,14 @@ func _build_cars_panel() -> void:
 	_refresh_cars()
 
 var _cars_vb: VBoxContainer
+var _car_buy_btns := []  # {btn, cost} for live disabled updates
 
 func _refresh_cars() -> void:
 	if not _cars_vb:
 		return
 	for c in _cars_vb.get_children():
 		c.queue_free()
+	_car_buy_btns.clear()
 	# style meter header
 	var heat_txt := "HEAT ACTIVE! 2x income (%ds)" % int(game.heat_timer) if game.heat_timer > 0 else "Style %d/100 — full meter = 30s 2x HEAT" % int(game.style_meter)
 	var hm := _label(heat_txt, 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.2) if game.heat_timer > 0 else Color(1, 1, 1, 0.7))
@@ -332,7 +334,7 @@ func _refresh_cars() -> void:
 		var cvb := VBoxContainer.new()
 		cvb.add_theme_constant_override("separation", 6)
 		card.add_child(cvb)
-		# name + color dot
+		# name + color dot + rarity
 		var nhb := HBoxContainer.new()
 		nhb.add_theme_constant_override("separation", 10)
 		cvb.add_child(nhb)
@@ -343,6 +345,9 @@ func _refresh_cars() -> void:
 		var nl := _label(String(car["name"]), 28, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nhb.add_child(nl)
+		var rr: String = car["rarity"]
+		var rl := _label(rr.to_upper(), 20, Vector2(0, 0), FONT_HUD, Economy.RARITY_COLORS[rr])
+		nhb.add_child(rl)
 		# stats
 		var move_names := {"drift": "Drift", "spin": "360 Spin", "reverse": "Reverse Entry", "wall": "Wall Tap"}
 		var sl := _label("Income x%.1f  ·  Speed x%.2f  ·  Move: %s" % [float(car["income"]), float(car["speed"]), move_names.get(String(car["move"]), "?")],
@@ -362,6 +367,7 @@ func _refresh_cars() -> void:
 			var cidx := ci
 			buy.pressed.connect(func(): game.buy_car(cidx))
 			buy.disabled = game.cash < float(car["cost"])
+			_car_buy_btns.append({"btn": buy, "cost": float(car["cost"]), "ci": ci})
 		else:
 			var ehb := HBoxContainer.new()
 			ehb.add_theme_constant_override("separation", 6)
@@ -472,16 +478,53 @@ func tick(dt: float) -> void:
 	_time += dt
 	_cash_l.text = "$%s" % BigNum.fmt(game.cash)
 	_ips_l.text = "$%s" % BigNum.fmt(game.income_per_sec())
-	# update generator bars + buy buttons (cheap enough every frame)
+	# update generator bars (every frame)
 	for i in range(6):
 		var c: Dictionary = _cards[i]
 		(c["bar"] as ProgressBar).value = game.progress[i]
+	# refresh button affordability 2x/sec (fixes stale disabled states)
+	_btn_t += dt
+	if _btn_t >= 0.5:
+		_btn_t = 0.0
+		_refresh_button_states()
 	# floating texts
 	for ft in _float_layer.get_children():
 		ft.position.y -= 60.0 * dt
 		ft.modulate.a -= dt * 0.8
 		if ft.modulate.a <= 0.0:
 			ft.queue_free()
+
+var _btn_t := 0.0
+
+func _refresh_button_states() -> void:
+	# generator buys
+	for i in range(6):
+		var c: Dictionary = _cards[i]
+		var g: Dictionary = Economy.GENERATORS[i]
+		var owned: int = game.owned[i]
+		var n: int = game.bulk if game.bulk > 0 else Economy.max_affordable(float(g["cost"]), owned, game.cash)
+		if n <= 0:
+			n = 1
+		var cost := Economy.bulk_cost(float(g["cost"]), owned, n)
+		(c["buy"] as Button).disabled = game.cash < cost
+	# crew
+	for e in _mech_btns:
+		var btn: Button = e["btn"]
+		var mi: int = e["idx"]
+		if not game.mechanics[mi]:
+			btn.disabled = game.cash < float(Economy.MECHANICS[mi]["cost"])
+	# shop
+	for e in _shop_btns:
+		var u: int = e["idx"]
+		var btn2: Button = e["btn"]
+		if u not in game.upgrades_bought:
+			btn2.disabled = game.cash < float(Economy.UPGRADES[u]["cost"])
+	# car buys
+	for e in _car_buy_btns:
+		var cb: Button = e["btn"]
+		var ci: int = e["ci"]
+		if not game.cars_owned[ci]:
+			cb.disabled = game.cash < float(e["cost"])
 
 func float_text(gen_idx: int, amount: float) -> void:
 	var l := _label("+$%s" % BigNum.fmt(amount), 28, Vector2(0, 0), FONT_MONO, Color(0.45, 1.0, 0.55))

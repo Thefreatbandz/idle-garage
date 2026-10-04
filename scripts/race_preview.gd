@@ -60,6 +60,18 @@ func _car_move(i: int) -> String:
 		return String(car["move"])
 	return "drift"
 
+func _car_livery(i: int) -> String:
+	if game:
+		var car: Dictionary = Economy.CARS[int(game.cars_equipped[i])]
+		return String(car["livery"])
+	return "plain"
+
+func _car_rarity(i: int) -> String:
+	if game:
+		var car: Dictionary = Economy.CARS[int(game.cars_equipped[i])]
+		return String(car["rarity"])
+	return "regular"
+
 func _bay_pos(i: int) -> Vector2:
 	var col := i % 3
 	var row := i / 3
@@ -300,7 +312,7 @@ func _draw() -> void:
 						extra_yaw = 0.6
 					_:
 						extra_yaw = 0.45
-			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i))
+			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i), _car_livery(i), _car_rarity(i))
 	# status
 	var st := "WARMING UP"
 	var nowned := _owned_count()
@@ -318,7 +330,7 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(w - 24, 28), ips,
 		HORIZONTAL_ALIGNMENT_RIGHT, -1, 24, Color(0.45, 1.0, 0.55))
 
-func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color) -> void:
+func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String) -> void:
 	var yaw := angle  # angle already includes drift/move yaw from caller
 	var dir := Vector2(cos(yaw), sin(yaw))
 	var perp := Vector2(-dir.y, dir.x)
@@ -329,10 +341,37 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color) -> void:
 		p - dir * l + perp * wd, p - dir * l - perp * wd,
 	])
 	draw_colored_polygon(body, col)
+	# livery designs
+	match livery:
+		"stripe":
+			# racing stripe down the middle
+			var st := PackedVector2Array([
+				p + dir * l - perp * wd * 0.3, p + dir * l + perp * wd * 0.3,
+				p - dir * l + perp * wd * 0.3, p - dir * l - perp * wd * 0.3,
+			])
+			draw_colored_polygon(st, Color(1, 1, 1, 0.85))
+		"number":
+			# door number roundel
+			draw_circle(p, 8.0, Color(1, 1, 1, 0.9))
+			draw_circle(p, 8.0, col.darkened(0.3), false, 2.0)
+		"twotone":
+			# two-tone: dark rear half
+			var rear := PackedVector2Array([
+				p - dir * l * 0.1 - perp * wd, p - dir * l * 0.1 + perp * wd,
+				p - dir * l + perp * wd, p - dir * l - perp * wd,
+			])
+			draw_colored_polygon(rear, col.darkened(0.45))
+	# windshield
 	var ws := PackedVector2Array([
 		p + dir * l * 0.45 - perp * wd * 0.7, p + dir * l * 0.45 + perp * wd * 0.7,
 		p + dir * l * 0.05 + perp * wd * 0.7, p + dir * l * 0.05 - perp * wd * 0.7,
 	])
 	draw_colored_polygon(ws, Color(0.1, 0.12, 0.16))
+	# rarity glow ring
+	var rcol: Color = Economy.RARITY_COLORS.get(rarity, Color(1, 1, 1, 0.3))
+	if rarity == "legendary":
+		draw_arc(p, 34.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.6), 3.0)
+	elif rarity == "exotic":
+		draw_arc(p, 32.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.4), 2.0)
 	if drifting:
 		draw_arc(p, 26.0, 0, TAU, 16, Color(1.0, 0.6, 0.2, 0.25), 3.0)
