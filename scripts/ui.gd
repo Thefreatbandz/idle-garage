@@ -46,15 +46,15 @@ func build() -> void:
 	accent.position = Vector2(0, 107)
 	accent.size = Vector2(720, 3)
 	add_child(accent)
-	_cash_l = _label("$0", 52, Vector2(20, 8), FONT_MONO, Color(0.45, 1.0, 0.55))
+	_cash_l = _label("$0", 48, Vector2(24, 10), FONT_MONO, Color(0.50, 1.0, 0.60))
 	add_child(_cash_l)
-	var title := _label("IDLE GARAGE", 30, Vector2(0, 62), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
+	var title := _label("IDLE GARAGE", 28, Vector2(0, 64), FONT_DISPLAY, Color(1.0, 0.65, 0.30))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.custom_minimum_size = Vector2(720, 40)
+	title.custom_minimum_size = Vector2(720, 38)
 	add_child(title)
-	_ips_l = _label("", 30, Vector2(720 - 220, 8), FONT_MONO, Color(1.0, 0.85, 0.55))
+	_ips_l = _label("", 26, Vector2(720 - 220, 12), FONT_MONO, Color(1.0, 0.85, 0.55))
 	_ips_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_ips_l.custom_minimum_size = Vector2(200, 40)
+	_ips_l.custom_minimum_size = Vector2(196, 36)
 	add_child(_ips_l)
 	var ips_cap := _label("PER SEC", 18, Vector2(720 - 220, 48), FONT_HUD, Color(1, 1, 1, 0.5))
 	ips_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -67,12 +67,28 @@ func build() -> void:
 	preview.size = Vector2(720, 520)
 	add_child(preview)
 	_preview = preview
-	# tabs (6 tabs + bulk in one row)
+	# tabs (6 tabs + bulk in one row) — clean pill style
 	var tabs := ["BAYS", "CREW", "SHOP", "CARS", "AWARDS", "STATS"]
 	for ti in range(6):
-		var tb := _button(tabs[ti], Vector2(12 + ti * 100, 642), Vector2(96, 54), 20)
+		var tb := Button.new()
+		tb.text = tabs[ti]
+		tb.position = Vector2(12 + ti * 104, 642)
+		tb.custom_minimum_size = Vector2(100, 54)
+		tb.size = Vector2(100, 54)
+		tb.add_theme_font_size_override("font_size", 19)
+		tb.add_theme_font_override("font", FONT_HUD)
+		tb.add_theme_color_override("font_color", Color(0.65, 0.65, 0.70))
+		# clean pill stylebox
+		var tbn := StyleBoxFlat.new()
+		tbn.bg_color = Color(0, 0, 0, 0)
+		tbn.set_corner_radius_all(27)
+		tb.add_theme_stylebox_override("normal", tbn)
+		tb.add_theme_stylebox_override("hover", tbn)
+		tb.add_theme_stylebox_override("pressed", tbn)
+		tb.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		var idx := ti
 		tb.pressed.connect(func(): _set_tab(idx))
+		add_child(tb)
 		_tab_btns.append(tb)
 	# bulk toggle (right side of tab row)
 	_bulk_btn = _button("x1", Vector2(720 - 100, 642), Vector2(88, 54), 20)
@@ -123,13 +139,13 @@ func _button(t: String, pos: Vector2, size: Vector2, font := 28) -> Button:
 	b.add_theme_font_override("font", FONT_HUD)
 	b.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.12, 0.18, 0.95)
-	sb.border_color = Color(1.0, 0.65, 0.28, 0.9)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(12)
-	sb.shadow_color = Color(0, 0, 0, 0.4)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 2)
+	sb.bg_color = Color(0.14, 0.11, 0.16, 0.96)
+	sb.border_color = Color(1.0, 0.65, 0.28, 0.55)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(14)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 5
+	sb.shadow_offset = Vector2(0, 3)
 	b.add_theme_stylebox_override("normal", sb)
 	var sbp := sb.duplicate() as StyleBoxFlat
 	sbp.bg_color = Color(0.90, 0.48, 0.18, 0.98)
@@ -166,17 +182,17 @@ func _build_bays_panel() -> void:
 	_refresh_missions()
 	for i in range(10):
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(680, 150)
+		card.custom_minimum_size = Vector2(680, 156)
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
-		sb.border_color = Color(1.0, 0.62, 0.25, 0.55)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(14)
-		sb.shadow_color = Color(0, 0, 0, 0.5)
-		sb.shadow_size = 6
-		sb.shadow_offset = Vector2(0, 3)
-		sb.content_margin_left = 14
-		sb.content_margin_right = 14
+		sb.bg_color = Color(0.11, 0.10, 0.14, 0.98)
+		sb.border_color = Color(1.0, 0.62, 0.25, 0.35)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(16)
+		sb.shadow_color = Color(0, 0, 0, 0.4)
+		sb.shadow_size = 8
+		sb.shadow_offset = Vector2(0, 4)
+		sb.content_margin_left = 18
+		sb.content_margin_right = 18
 		sb.content_margin_top = 10
 		sb.content_margin_bottom = 10
 		card.add_theme_stylebox_override("panel", sb)
@@ -594,9 +610,22 @@ func _set_tab(t: int) -> void:
 	_tab = t
 	for i in range(6):
 		_panels[i].visible = i == t
-		# highlight active tab
+		# clean pill active state
 		var tb: Button = _tab_btns[i]
-		tb.modulate = Color(1, 1, 1) if i == t else Color(1, 1, 1, 0.55)
+		if i == t:
+			var act := StyleBoxFlat.new()
+			act.bg_color = Color(1.0, 0.62, 0.25, 0.18)
+			act.set_corner_radius_all(27)
+			act.border_color = Color(1.0, 0.62, 0.25, 0.6)
+			act.set_border_width_all(2)
+			tb.add_theme_stylebox_override("normal", act)
+			tb.add_theme_color_override("font_color", Color(1.0, 0.75, 0.40))
+		else:
+			var ina := StyleBoxFlat.new()
+			ina.bg_color = Color(0, 0, 0, 0)
+			ina.set_corner_radius_all(27)
+			tb.add_theme_stylebox_override("normal", ina)
+			tb.add_theme_color_override("font_color", Color(0.55, 0.55, 0.60))
 	if t == 3:
 		_refresh_cars()
 	if t == 4:
