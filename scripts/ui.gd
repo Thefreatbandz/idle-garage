@@ -154,6 +154,13 @@ func _build_bays_panel() -> void:
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(680, 36)
 	vb.add_child(_hint_label)
+	# DAILY MISSIONS
+	var mh := _label("— DAILY MISSIONS —", 22, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6))
+	vb.add_child(mh)
+	_missions_vb = VBoxContainer.new()
+	_missions_vb.add_theme_constant_override("separation", 6)
+	vb.add_child(_missions_vb)
+	_refresh_missions()
 	for i in range(8):
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(680, 150)
@@ -286,6 +293,23 @@ func _build_shop_panel() -> void:
 var _shop_btns := []
 var _preview: Control
 var _hint_label: Label
+var _missions_vb: VBoxContainer
+
+func _refresh_missions() -> void:
+	if not _missions_vb or not game:
+		return
+	for c in _missions_vb.get_children():
+		c.queue_free()
+	for i in range(Economy.MISSIONS.size()):
+		var m: Dictionary = Economy.MISSIONS[i]
+		var done: bool = game.missions_done[i]
+		var prog: float = game.mission_prog[i]
+		var target: float = m["target"]
+		var label_text := String(m["label"]) % [BigNum.fmt(target) if String(m["id"]) == "earn" else int(target)]
+		var status := "DONE" if done else "%s / %s" % [BigNum.fmt(prog), BigNum.fmt(target)]
+		var col := Color(0.5, 1.0, 0.6, 0.9) if done else Color(1, 1, 1, 0.75)
+		var l := _label("%s  [%s]" % [label_text, status], 20, Vector2(0, 0), FONT_HUD, col)
+		_missions_vb.add_child(l)
 
 func _build_cars_panel() -> void:
 	var p: ScrollContainer = _panels[3]
@@ -538,6 +562,7 @@ func tick(dt: float) -> void:
 	if _btn_t >= 0.5:
 		_btn_t = 0.0
 		_refresh_button_states()
+		_refresh_missions()
 	# floating texts
 	for ft in _float_layer.get_children():
 		ft.position.y -= 60.0 * dt
@@ -716,6 +741,157 @@ func heat_popup() -> void:
 	var tw := create_tween()
 	tw.tween_interval(3.0)
 	tw.tween_callback(toast.queue_free)
+
+func mission_popup(label: String) -> void:
+	var toast := PanelContainer.new()
+	toast.custom_minimum_size = Vector2(600, 80)
+	toast.position = Vector2(60, 380)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.12, 0.08, 0.97)
+	sb.border_color = Color(0.4, 1.0, 0.5, 0.95)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	toast.add_theme_stylebox_override("panel", sb)
+	var t := _label("MISSION COMPLETE: %s" % label, 26, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.custom_minimum_size = Vector2(560, 50)
+	toast.add_child(t)
+	add_child(toast)
+	var tw := create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_callback(toast.queue_free)
+
+func show_daily_popup(streak: int) -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(600, 480)
+	panel.position = Vector2(60, 350)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.09, 0.13, 0.98)
+	sb.border_color = Color(1.0, 0.75, 0.30, 0.95)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 24
+	sb.content_margin_right = 24
+	sb.content_margin_top = 20
+	sb.content_margin_bottom = 20
+	panel.add_theme_stylebox_override("panel", sb)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	panel.add_child(vb)
+	var title := _label("DAILY REWARD — DAY %d" % streak, 32, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.75, 0.30))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.custom_minimum_size = Vector2(552, 44)
+	vb.add_child(title)
+	# 7-day strip
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 8)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(hb)
+	for i in range(7):
+		var r: Dictionary = Economy.DAILY_REWARDS[i]
+		var cell := PanelContainer.new()
+		cell.custom_minimum_size = Vector2(70, 90)
+		var csb := StyleBoxFlat.new()
+		var is_today := (i + 1) == streak
+		var is_done := (i + 1) < streak
+		csb.bg_color = Color(1.0, 0.75, 0.30, 0.25) if is_today else (Color(0.2, 0.25, 0.2, 0.9) if is_done else Color(0.13, 0.12, 0.16, 0.9))
+		csb.border_color = Color(1.0, 0.75, 0.30, 1.0) if is_today else Color(0.4, 0.38, 0.45, 0.6)
+		csb.set_border_width_all(2 if is_today else 1)
+		csb.set_corner_radius_all(8)
+		cell.add_theme_stylebox_override("panel", csb)
+		var cl := _label("D%d\n%s" % [i + 1, r["label"]], 16, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.95 if is_today else 0.7))
+		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		cl.custom_minimum_size = Vector2(70, 90)
+		cell.add_child(cl)
+		hb.add_child(cell)
+	var r2: Dictionary = Economy.DAILY_REWARDS[streak - 1]
+	var desc := _label("Today: %s" % r2["label"], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.custom_minimum_size = Vector2(552, 36)
+	vb.add_child(desc)
+	var btn := _button("CLAIM", Vector2(0, 0), Vector2(552, 64), 28)
+	remove_child(btn)
+	vb.add_child(btn)
+	btn.pressed.connect(func():
+		game.claim_daily()
+		dim.queue_free()
+		panel.queue_free()
+	)
+	add_child(panel)
+
+func show_heat_tap() -> void:
+	# 5-second tap-the-green-zone minigame; perfect taps extend HEAT
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(600, 140)
+	panel.position = Vector2(60, 480)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.08, 0.06, 0.97)
+	sb.border_color = Color(1.0, 0.45, 0.12, 0.95)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	panel.add_child(vb)
+	var t := _label("TAP IN THE GREEN! (+5s HEAT)", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.custom_minimum_size = Vector2(560, 32)
+	vb.add_child(t)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(560, 36)
+	bar.max_value = 100.0
+	bar.value = 0.0
+	bar.show_percentage = false
+	vb.add_child(bar)
+	add_child(panel)
+	var taps := 0
+	var time_left := 5.0
+	var marker := 0.0
+	var dir := 1.0
+	# green zone: 40-60
+	var zone_l := 40.0
+	var zone_r := 60.0
+	var tap_btn := _button("TAP!", Vector2(0, 0), Vector2(560, 56), 26)
+	remove_child(tap_btn)
+	vb.add_child(tap_btn)
+	tap_btn.pressed.connect(func():
+		if marker >= zone_l and marker <= zone_r and taps < 3:
+			taps += 1
+			game.heat_timer = minf(game.heat_timer + 5.0, 45.0)
+			t.text = "NICE! +%ds HEAT (%d/3)" % [taps * 5, taps]
+	)
+	# animate in _process via a timer
+	var timer := Timer.new()
+	timer.wait_time = 0.05
+	timer.autostart = true
+	add_child(timer)
+	timer.timeout.connect(func():
+		time_left -= 0.05
+		marker += dir * 4.0
+		if marker >= 100.0:
+			marker = 100.0
+			dir = -1.0
+		elif marker <= 0.0:
+			marker = 0.0
+			dir = 1.0
+		bar.value = marker
+		if time_left <= 0.0:
+			timer.queue_free()
+			panel.queue_free()
+	)
 
 func show_offline_popup(gained: float, away_sec: float) -> void:
 	# dim background

@@ -26,7 +26,25 @@ const MECHANICS := [
 	{"name": "Nova", "cost": 90000000.0},
 ]
 
-# Buyable tracks: {name, cost, bonus (income mult), shape (0-4), curb_a, curb_b, asphalt, asphalt_hi, bg, glow}
+# Daily rewards: 7-day streak calendar {day, type, amount/car_idx, label}
+# type: "cash", "car", "style"
+const DAILY_REWARDS := [
+	{"day": 1, "type": "cash", "amount": 1000.0, "label": "$1K"},
+	{"day": 2, "type": "cash", "amount": 5000.0, "label": "$5K"},
+	{"day": 3, "type": "car", "car": 3, "label": "City Coupe"},
+	{"day": 4, "type": "cash", "amount": 25000.0, "label": "$25K"},
+	{"day": 5, "type": "car", "car": 8, "label": "Apex S2000"},
+	{"day": 6, "type": "cash", "amount": 100000.0, "label": "$100K"},
+	{"day": 7, "type": "cash", "amount": 500000.0, "label": "$500K"},
+]
+
+# Daily missions: {id, label, target, reward_cash}
+const MISSIONS := [
+	{"id": "earn", "label": "Earn $%s", "target": 50000.0, "reward": 10000.0},
+	{"id": "cars", "label": "Buy %d car", "target": 1.0, "reward": 15000.0},
+	{"id": "heat", "label": "Trigger HEAT %dx", "target": 2.0, "reward": 20000.0},
+	{"id": "bays", "label": "Buy %d bays", "target": 5.0, "reward": 12000.0},
+]
 # shapes: 0=Ebisu peanut, 1=Meihan paperclip, 2=Nikko triangle, 3=Long Beach angular, 4=Irwindale ellipse
 const TRACKS := [
 	{"name": "Ebisu Nights", "cost": 0.0, "bonus": 1.0, "shape": 0,

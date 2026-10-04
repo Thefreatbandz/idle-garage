@@ -21,6 +21,13 @@ var style_meter := 0.0  # 0..100, fills from drifting
 var heat_timer := 0.0  # >0 = 2x HEAT bonus active
 var bulk := 1  # 1, 10, 100, -1 (MAX)
 var start_time := 0
+# daily rewards
+var last_daily := ""  # YYYY-MM-DD of last claim
+var daily_streak := 0  # 1..7
+# missions (daily)
+var mission_date := ""  # YYYY-MM-DD
+var missions_done := [false, false, false, false]
+var mission_prog := [0.0, 0.0, 0.0, 0.0]
 
 var _save_t := 0.0
 var _ui: CanvasLayer
@@ -42,6 +49,68 @@ func _ready() -> void:
 		var a: Dictionary = Economy.ACHIEVEMENTS[ai]
 		_ui.achievement_popup(String(a["name"]), float(a["bonus"]))
 	_pending_ach_popups = []
+	# daily rewards + missions check
+	_check_daily()
+
+func _today_str() -> String:
+	var d := Time.get_date_dict_from_system()
+	return "%04d-%02d-%02d" % [d["year"], d["month"], d["day"]]
+
+func _check_daily() -> void:
+	var today := _today_str()
+	# missions reset
+	if mission_date != today:
+		mission_date = today
+		missions_done = [false, false, false, false]
+		mission_prog = [0.0, 0.0, 0.0, 0.0]
+		_save()
+	# daily reward
+	if last_daily == today:
+		return  # already claimed
+	var yesterday := _today_str_offset(-1)
+	if last_daily == yesterday:
+		daily_streak = mini(daily_streak + 1, 7)
+	else:
+		daily_streak = 1  # streak broken or first time
+	_ui.show_daily_popup(daily_streak)
+
+func _today_str_offset(days: int) -> String:
+	var t := Time.get_unix_time_from_system() + days * 86400
+	var d := Time.get_date_dict_from_unix_time(t)
+	return "%04d-%02d-%02d" % [d["year"], d["month"], d["day"]]
+
+func claim_daily() -> void:
+	var r: Dictionary = Economy.DAILY_REWARDS[daily_streak - 1]
+	match String(r["type"]):
+		"cash":
+			cash += float(r["amount"])
+			total_earned += float(r["amount"])
+		"car":
+			var ci := int(r["car"])
+			cars_owned[ci] = true
+		"style":
+			style_meter = minf(style_meter + float(r["amount"]), 100.0)
+	last_daily = _today_str()
+	_ui.refresh_all()
+	_save()
+
+# missions
+func mission_progress(id: String, amount: float) -> void:
+	var mi := -1
+	for i in range(Economy.MISSIONS.size()):
+		if String(Economy.MISSIONS[i]["id"]) == id:
+			mi = i
+			break
+	if mi < 0 or missions_done[mi]:
+		return
+	mission_prog[mi] += amount
+	var target: float = Economy.MISSIONS[mi]["target"]
+	if mission_prog[mi] >= target:
+		missions_done[mi] = true
+		cash += float(Economy.MISSIONS[mi]["reward"])
+		total_earned += float(Economy.MISSIONS[mi]["reward"])
+		_ui.mission_popup(String(Economy.MISSIONS[mi]["label"]))
+		_save()
 
 func _process(dt: float) -> void:
 	# clamp dt (tab back after hours shouldn't simulate frame-by-frame)
@@ -71,6 +140,8 @@ func _process(dt: float) -> void:
 		style_meter = 0.0
 		heat_timer = 30.0
 		_ui.heat_popup()
+		_ui.show_heat_tap()
+		mission_progress("heat", 1.0)
 	if heat_timer > 0.0:
 		heat_timer -= dt
 	_ui.tick(dt)
@@ -84,6 +155,7 @@ func earn(v: float) -> void:
 	cash += v
 	lifetime += v
 	total_earned += v
+	mission_progress("earn", v)
 	check_achievements()
 
 func spend(v: float) -> bool:
@@ -166,6 +238,7 @@ func buy_car(ci: int) -> void:
 	var cost: float = Economy.CARS[ci]["cost"]
 	if spend(cost):
 		cars_owned[ci] = true
+		mission_progress("cars", 1.0)
 		_ui.refresh_all()
 		_save()
 
@@ -202,6 +275,7 @@ func buy_generator(i: int) -> void:
 	var cost := Economy.bulk_cost(base, owned[i], n)
 	if spend(cost):
 		owned[i] += n
+		mission_progress("bays", float(n))
 		_ui.refresh_all()
 		check_achievements()
 		_save()
@@ -252,6 +326,8 @@ func _save() -> void:
 		"achievements": achievements,
 		"cars_owned": cars_owned, "cars_equipped": cars_equipped,
 		"tracks_owned": tracks_owned, "track_selected": track_selected,
+		"last_daily": last_daily, "daily_streak": daily_streak,
+		"mission_date": mission_date, "missions_done": missions_done, "mission_prog": mission_prog,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -292,6 +368,15 @@ func _load() -> void:
 	track_selected = int(d.get("track_selected", 0))
 	if track_selected < 0 or track_selected >= 5:
 		track_selected = 0
+	last_daily = String(d.get("last_daily", ""))
+	daily_streak = int(d.get("daily_streak", 0))
+	mission_date = String(d.get("mission_date", ""))
+	var md: Array = d.get("missions_done", [false, false, false, false])
+	for i in range(4):
+		missions_done[i] = bool(md[i]) if i < md.size() else false
+	var mp: Array = d.get("mission_prog", [0.0, 0.0, 0.0, 0.0])
+	for i in range(4):
+		mission_prog[i] = float(mp[i]) if i < mp.size() else 0.0
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0
