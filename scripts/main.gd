@@ -13,7 +13,7 @@ var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
 var prestige_count := 0
 var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
-var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false]
+var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
 var cars_equipped := [0, 0, 0, 0, 0, 0]  # car index per generator bay
 var style_meter := 0.0  # 0..100, fills from drifting
 var heat_timer := 0.0  # >0 = 2x HEAT bonus active
@@ -259,8 +259,8 @@ func _load() -> void:
 	stars = int(d.get("stars", 0))
 	prestige_count = int(d.get("prestige_count", 0))
 	achievements = d.get("achievements", [])
-	var co: Array = d.get("cars_owned", [true, false, false, false, false, false, false, false, false, false, false, false])
-	for i in range(12):
+	var co: Array = d.get("cars_owned", [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false])
+	for i in range(20):
 		cars_owned[i] = bool(co[i]) if i < co.size() else (i == 0)
 	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0])
 	for i in range(6):

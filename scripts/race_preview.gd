@@ -34,7 +34,7 @@ var _car_tex: Array = []  # preloaded car sprites, null = procedural fallback
 func _ready() -> void:
 	_perimeter = 4.0 * _straight + 2.0 * PI * _radius
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for i in range(12):
+	for i in range(20):
 		var path := "res://assets/cars/car_%02d.png" % i
 		if ResourceLoader.exists(path):
 			_car_tex.append(load(path))
@@ -241,27 +241,64 @@ func _track_angle(t: float) -> float:
 	d -= c
 	return PI + d / _radius
 
+func _track_theme() -> Dictionary:
+	# 0=street, 1=neon (6+ cars), 2=championship (1+ star)
+	var tier := 0
+	if game:
+		var owned_cars := 0
+		for c in game.cars_owned:
+			if c:
+				owned_cars += 1
+		if int(game.stars) >= 1:
+			tier = 2
+		elif owned_cars >= 6:
+			tier = 1
+	match tier:
+		1:
+			return {"name": "NEON NIGHTS", "curb_a": Color(0.2, 0.9, 1.0), "curb_b": Color(0.9, 0.2, 0.9),
+				"asphalt": Color(0.10, 0.10, 0.14), "asphalt_hi": Color(0.16, 0.16, 0.20),
+				"bg": Color(0.05, 0.05, 0.10), "glow": Color(0.2, 0.8, 1.0, 0.3)}
+		2:
+			return {"name": "CHAMPIONSHIP", "curb_a": Color(1.0, 0.8, 0.2), "curb_b": Color(0.95, 0.95, 0.95),
+				"asphalt": Color(0.14, 0.13, 0.12), "asphalt_hi": Color(0.20, 0.19, 0.18),
+				"bg": Color(0.08, 0.07, 0.06), "glow": Color(1.0, 0.8, 0.2, 0.25)}
+	return {"name": "STREET CIRCUIT", "curb_a": Color(0.85, 0.20, 0.20), "curb_b": Color(0.92, 0.92, 0.92),
+		"asphalt": Color(0.15, 0.15, 0.17), "asphalt_hi": Color(0.21, 0.21, 0.24),
+		"bg": Color(0.08, 0.07, 0.10), "glow": Color(0, 0, 0, 0)}
+
 func _draw() -> void:
 	var w := size.x
-	draw_rect(Rect2(0, 0, w, size.y), Color(0.08, 0.07, 0.10))
-	# track: outer curb (red/white), then asphalt
+	var theme := _track_theme()
+	draw_rect(Rect2(0, 0, w, size.y), theme["bg"])
+	# infield grass with subtle texture
 	var pts := PackedVector2Array()
 	var n := 72
 	for i in range(n + 1):
 		pts.append(_track_pos(float(i) / float(n)))
-	# red/white curb effect: alternate segments
+	# grass infield (fill inside track)
+	var inner := PackedVector2Array()
+	for i in range(n + 1):
+		inner.append(_track_pos(float(i) / float(n)) * 0.82 + Vector2(_cx * 0.18, _cy * 0.18))
+	draw_colored_polygon(inner, Color(0.12, 0.28, 0.14))
+	# track: curb, then asphalt with theme colors
 	for i in range(0, n, 2):
 		var seg := PackedVector2Array([pts[i], pts[i + 1], pts[i + 2] if i + 2 <= n else pts[n]])
-		var curb_col := Color(0.85, 0.20, 0.20) if (i / 2) % 2 == 0 else Color(0.92, 0.92, 0.92)
+		var curb_col: Color = theme["curb_a"] if (i / 2) % 2 == 0 else theme["curb_b"]
 		if seg.size() >= 2:
 			draw_polyline(seg, curb_col, 46.0, true)
-	draw_polyline(pts, Color(0.15, 0.15, 0.17), 40.0, true)
-	draw_polyline(pts, Color(0.21, 0.21, 0.24), 32.0, true)
+	draw_polyline(pts, theme["asphalt"], 40.0, true)
+	draw_polyline(pts, theme["asphalt_hi"], 32.0, true)
+	# theme glow under track
+	if (theme["glow"] as Color).a > 0:
+		draw_polyline(pts, theme["glow"], 52.0, true)
 	# checkered start/finish line
 	var sf := _track_pos(0.0)
 	for k in range(4):
 		var ck := Color(1, 1, 1) if k % 2 == 0 else Color(0.1, 0.1, 0.1)
 		draw_rect(Rect2(sf + Vector2(-3, -16 + k * 8), Vector2(6, 8)), ck)
+	# theme label
+	draw_string(ThemeDB.fallback_font, Vector2(16, 30), theme["name"],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.5))
 	# bays
 	if game:
 		for i in range(6):
@@ -343,7 +380,11 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: Str
 	# sprite (Kenney, faces up) — rotate so its nose follows travel dir
 	var tex: Texture2D = _car_tex[car_idx] if car_idx < _car_tex.size() else null
 	if tex != null:
-		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.42, 0.42))
+		# drop shadow for depth
+		draw_set_transform(p + Vector2(4, 6), yaw + PI * 0.5, Vector2(0.55, 0.55))
+		draw_texture(tex, -tex.get_size() * 0.5, Color(0, 0, 0, 0.35))
+		# car body (bigger so spoilers/details read)
+		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.55, 0.55))
 		draw_texture(tex, -tex.get_size() * 0.5)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:

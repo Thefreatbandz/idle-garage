@@ -48,18 +48,26 @@ const CARS := [
 	{"name": "Rust Bucket", "cost": 0.0, "income": 1.0, "speed": 1.0, "style": 1.0, "move": "drift", "color": Color(0.55, 0.55, 0.58), "livery": "plain", "sprite": "res://assets/cars/car_00.png", "rarity": "regular"},
 	{"name": "Daily Beater", "cost": 2000.0, "income": 1.15, "speed": 1.05, "style": 1.1, "move": "drift", "color": Color(0.45, 0.60, 0.70), "livery": "plain", "sprite": "res://assets/cars/car_01.png", "rarity": "regular"},
 	{"name": "Street S13", "cost": 5000.0, "income": 1.3, "speed": 1.12, "style": 1.4, "move": "spin", "color": Color(0.25, 0.55, 0.95), "livery": "stripe", "sprite": "res://assets/cars/car_02.png", "rarity": "regular"},
+	{"name": "City Coupe", "cost": 12000.0, "income": 1.22, "speed": 1.08, "style": 1.2, "move": "drift", "color": Color(0.35, 0.70, 0.40), "livery": "plain", "sprite": "res://assets/cars/car_12.png", "rarity": "regular"},
+	{"name": "Night Runner", "cost": 25000.0, "income": 1.25, "speed": 1.10, "style": 1.3, "move": "drift", "color": Color(0.85, 0.75, 0.25), "livery": "plain", "sprite": "res://assets/cars/car_13.png", "rarity": "regular"},
 	# RARE — income + speed
 	{"name": "Drift AE86", "cost": 75000.0, "income": 1.7, "speed": 1.25, "style": 2.0, "move": "reverse", "color": Color(0.95, 0.95, 0.92), "livery": "twotone", "sprite": "res://assets/cars/car_03.png", "rarity": "rare"},
 	{"name": "Turbo FC", "cost": 200000.0, "income": 1.9, "speed": 1.32, "style": 2.2, "move": "spin", "color": Color(0.90, 0.55, 0.20), "livery": "stripe", "sprite": "res://assets/cars/car_04.png", "rarity": "rare"},
 	{"name": "Grip R32", "cost": 400000.0, "income": 2.0, "speed": 1.38, "style": 2.4, "move": "reverse", "color": Color(0.30, 0.35, 0.45), "livery": "number", "sprite": "res://assets/cars/car_05.png", "rarity": "rare"},
+	{"name": "Apex S2000", "cost": 150000.0, "income": 1.8, "speed": 1.30, "style": 2.1, "move": "spin", "color": Color(0.30, 0.50, 0.90), "livery": "stripe", "sprite": "res://assets/cars/car_14.png", "rarity": "rare"},
+	{"name": "Boosted 240", "cost": 300000.0, "income": 1.95, "speed": 1.35, "style": 2.3, "move": "drift", "color": Color(0.90, 0.35, 0.30), "livery": "stripe", "sprite": "res://assets/cars/car_15.png", "rarity": "rare"},
 	# EXOTIC — income + style (faster HEAT)
 	{"name": "Pro FD3S", "cost": 800000.0, "income": 2.2, "speed": 1.4, "style": 2.8, "move": "wall", "color": Color(0.95, 0.30, 0.25), "livery": "number", "sprite": "res://assets/cars/car_06.png", "rarity": "exotic"},
 	{"name": "Carbon Supra", "cost": 2000000.0, "income": 2.5, "speed": 1.45, "style": 3.2, "move": "spin", "color": Color(0.20, 0.20, 0.22), "livery": "stripe", "sprite": "res://assets/cars/car_07.png", "rarity": "exotic"},
 	{"name": "Widebody NSX", "cost": 4000000.0, "income": 2.7, "speed": 1.5, "style": 3.5, "move": "reverse", "color": Color(0.95, 0.75, 0.20), "livery": "twotone", "sprite": "res://assets/cars/car_08.png", "rarity": "exotic"},
+	{"name": "Phantom GT", "cost": 1500000.0, "income": 2.4, "speed": 1.42, "style": 3.0, "move": "spin", "color": Color(0.35, 0.65, 0.40), "livery": "number", "sprite": "res://assets/cars/car_16.png", "rarity": "exotic"},
+	{"name": "Velocity Z", "cost": 3000000.0, "income": 2.6, "speed": 1.48, "style": 3.3, "move": "reverse", "color": Color(0.35, 0.50, 0.90), "livery": "twotone", "sprite": "res://assets/cars/car_17.png", "rarity": "exotic"},
 	# LEGENDARY — everything, unique moves
 	{"name": "Legend R34", "cost": 8000000.0, "income": 3.0, "speed": 1.6, "style": 4.0, "move": "spin", "color": Color(0.35, 0.45, 0.95), "livery": "number", "sprite": "res://assets/cars/car_09.png", "rarity": "legendary"},
 	{"name": "Midnight S15", "cost": 15000000.0, "income": 3.5, "speed": 1.7, "style": 4.5, "move": "wall", "color": Color(0.15, 0.10, 0.35), "livery": "stripe", "sprite": "res://assets/cars/car_10.png", "rarity": "legendary"},
 	{"name": "Godzilla R35", "cost": 30000000.0, "income": 4.0, "speed": 1.8, "style": 5.0, "move": "spin", "color": Color(0.90, 0.90, 0.92), "livery": "number", "sprite": "res://assets/cars/car_11.png", "rarity": "legendary"},
+	{"name": "Emperor EVO", "cost": 12000000.0, "income": 3.3, "speed": 1.65, "style": 4.3, "move": "wall", "color": Color(0.85, 0.75, 0.25), "livery": "stripe", "sprite": "res://assets/cars/car_18.png", "rarity": "legendary"},
+	{"name": "Titan GTR", "cost": 25000000.0, "income": 3.8, "speed": 1.75, "style": 4.8, "move": "spin", "color": Color(0.90, 0.35, 0.30), "livery": "number", "sprite": "res://assets/cars/car_19.png", "rarity": "legendary"},
 ]
 
 const RARITY_COLORS := {

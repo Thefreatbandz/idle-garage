@@ -119,13 +119,17 @@ func _button(t: String, pos: Vector2, size: Vector2, font := 28) -> Button:
 	b.add_theme_font_override("font", FONT_HUD)
 	b.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.14, 0.11, 0.16, 0.9)
-	sb.border_color = Color(1.0, 0.62, 0.25, 0.85)
+	sb.bg_color = Color(0.16, 0.12, 0.18, 0.95)
+	sb.border_color = Color(1.0, 0.65, 0.28, 0.9)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
 	b.add_theme_stylebox_override("normal", sb)
 	var sbp := sb.duplicate() as StyleBoxFlat
-	sbp.bg_color = Color(0.85, 0.45, 0.16, 0.95)
+	sbp.bg_color = Color(0.90, 0.48, 0.18, 0.98)
+	sbp.border_color = Color(1.0, 0.80, 0.40, 1.0)
 	b.add_theme_stylebox_override("pressed", sbp)
 	b.add_theme_stylebox_override("hover", sb)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
@@ -153,10 +157,13 @@ func _build_bays_panel() -> void:
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(680, 150)
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.11, 0.10, 0.14, 0.95)
-		sb.border_color = Color(1.0, 0.62, 0.25, 0.4)
+		sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
+		sb.border_color = Color(1.0, 0.62, 0.25, 0.55)
 		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(12)
+		sb.set_corner_radius_all(14)
+		sb.shadow_color = Color(0, 0, 0, 0.5)
+		sb.shadow_size = 6
+		sb.shadow_offset = Vector2(0, 3)
 		sb.content_margin_left = 14
 		sb.content_margin_right = 14
 		sb.content_margin_top = 10
@@ -322,10 +329,13 @@ func _refresh_cars() -> void:
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(680, 170)
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.11, 0.10, 0.14, 0.95)
-		sb.border_color = Color(1.0, 0.62, 0.25, 0.4)
+		sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
+		sb.border_color = Color(1.0, 0.62, 0.25, 0.55)
 		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(12)
+		sb.set_corner_radius_all(14)
+		sb.shadow_color = Color(0, 0, 0, 0.5)
+		sb.shadow_size = 6
+		sb.shadow_offset = Vector2(0, 3)
 		sb.content_margin_left = 14
 		sb.content_margin_right = 14
 		sb.content_margin_top = 10
