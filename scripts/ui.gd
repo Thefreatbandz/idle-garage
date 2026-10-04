@@ -406,7 +406,8 @@ func _build_cars_panel() -> void:
 	_refresh_cars()
 
 var _cars_vb: VBoxContainer
-var _car_buy_btns := []  # {btn, cost} for live disabled updates
+var _car_buy_btns := []
+var _expanded_car := -1  # which car card is expanded (parts/decals)  # {btn, cost} for live disabled updates
 
 func _cycle_decal(car_idx: int) -> void:
 	# cycle to next owned decal (or none)
@@ -529,6 +530,16 @@ func _refresh_cars() -> void:
 		var rr: String = car["rarity"]
 		var rl := _label(rr.to_upper(), 20, Vector2(0, 0), FONT_HUD, Economy.RARITY_COLORS[rr])
 		nhb.add_child(rl)
+		# expand button for owned cars (parts/decals)
+		if game.cars_owned[ci]:
+			var exp_btn := _button("+" if _expanded_car != ci else "-", Vector2(0, 0), Vector2(56, 48), 24)
+			remove_child(exp_btn)
+			nhb.add_child(exp_btn)
+			var ecx := ci
+			exp_btn.pressed.connect(func():
+				_expanded_car = -1 if _expanded_car == ecx else ecx
+				_refresh_cars()
+			)
 		# stats
 		var move_names := {"drift": "Drift", "spin": "360 Spin", "reverse": "Reverse Entry", "wall": "Wall Tap"}
 		var sl := _label("Income x%.1f  ·  Speed x%.2f  ·  Move: %s" % [float(car["income"]), float(car["speed"]), move_names.get(String(car["move"]), "?")],
@@ -565,64 +576,65 @@ func _refresh_cars() -> void:
 				# highlight if equipped here
 				if game.cars_equipped[b] == ci:
 					bb.modulate = Color(0.45, 1.0, 0.55)
-			# PARTS — engine/tires/aero upgrades
-			var ph := _label("— PARTS —", 20, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
-			cvb.add_child(ph)
-			for pi in range(3):
-				var part: Dictionary = Economy.PARTS[pi]
-				var lv: int = game.car_parts[ci][pi]
-				var phb := HBoxContainer.new()
-				phb.add_theme_constant_override("separation", 8)
-				cvb.add_child(phb)
-				var pl := _label("%s Lv%d/%d" % [part["name"], lv, Economy.PART_MAX_LEVEL], 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85))
-				pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				phb.add_child(pl)
-				if lv < Economy.PART_MAX_LEVEL:
-					var pcost: float = game.part_cost(ci, pi)
-					var pbtn := _button("UP $%s" % BigNum.fmt(pcost), Vector2(0, 0), Vector2(180, 48), 20)
-					remove_child(pbtn)
-					phb.add_child(pbtn)
-					var cix := ci
-					var pix := pi
-					pbtn.pressed.connect(func(): game.buy_part(cix, pix))
-					pbtn.disabled = game.cash < pcost
-				else:
-					var maxl := _label("MAX", 20, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6))
-					phb.add_child(maxl)
-			# DECAL — equip owned decals
-			var dch := _label("— DECAL —", 20, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.8))
-			cvb.add_child(dch)
-			var dchb := HBoxContainer.new()
-			dchb.add_theme_constant_override("separation", 6)
-			cvb.add_child(dchb)
-			var cur_dec: int = game.car_decals[ci]
-			var dcl := _label("None" if cur_dec < 0 else String(Economy.DECALS[cur_dec]["name"]), 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85))
-			dcl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			dchb.add_child(dcl)
-			# cycle through owned decals
-			var dcbtn := _button("CHANGE", Vector2(0, 0), Vector2(140, 48), 20)
-			remove_child(dcbtn)
-			dchb.add_child(dcbtn)
-			var ccx := ci
-			dcbtn.pressed.connect(func(): _cycle_decal(ccx))
-			# color picker (6 presets)
-			var colhb := HBoxContainer.new()
-			colhb.add_theme_constant_override("separation", 6)
-			cvb.add_child(colhb)
-			var cols := [Color(1, 0.3, 0.3), Color(1, 0.8, 0.2), Color(0.3, 1, 0.4), Color(0.3, 0.6, 1), Color(0.8, 0.3, 1), Color(1, 1, 1)]
-			for coli in range(cols.size()):
-				var cb := Button.new()
-				cb.custom_minimum_size = Vector2(44, 44)
-				var csb := StyleBoxFlat.new()
-				csb.bg_color = cols[coli]
-				csb.set_corner_radius_all(22)
-				cb.add_theme_stylebox_override("normal", csb)
-				cb.add_theme_stylebox_override("hover", csb)
-				cb.add_theme_stylebox_override("pressed", csb)
-				colhb.add_child(cb)
-				var colx: Color = cols[coli]
-				var ccx2 := ci
-				cb.pressed.connect(func(): game.set_decal_color(ccx2, colx))
+			if _expanded_car == ci:
+				# PARTS — engine/tires/aero upgrades
+				var ph := _label("— PARTS —", 20, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+				cvb.add_child(ph)
+				for pi in range(3):
+					var part: Dictionary = Economy.PARTS[pi]
+					var lv: int = game.car_parts[ci][pi]
+					var phb := HBoxContainer.new()
+					phb.add_theme_constant_override("separation", 8)
+					cvb.add_child(phb)
+					var pl := _label("%s Lv%d/%d" % [part["name"], lv, Economy.PART_MAX_LEVEL], 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85))
+					pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					phb.add_child(pl)
+					if lv < Economy.PART_MAX_LEVEL:
+						var pcost: float = game.part_cost(ci, pi)
+						var pbtn := _button("UP $%s" % BigNum.fmt(pcost), Vector2(0, 0), Vector2(180, 48), 20)
+						remove_child(pbtn)
+						phb.add_child(pbtn)
+						var cix := ci
+						var pix := pi
+						pbtn.pressed.connect(func(): game.buy_part(cix, pix))
+						pbtn.disabled = game.cash < pcost
+					else:
+						var maxl := _label("MAX", 20, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6))
+						phb.add_child(maxl)
+				# DECAL — equip owned decals
+				var dch := _label("— DECAL —", 20, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.8))
+				cvb.add_child(dch)
+				var dchb := HBoxContainer.new()
+				dchb.add_theme_constant_override("separation", 6)
+				cvb.add_child(dchb)
+				var cur_dec: int = game.car_decals[ci]
+				var dcl := _label("None" if cur_dec < 0 else String(Economy.DECALS[cur_dec]["name"]), 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85))
+				dcl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				dchb.add_child(dcl)
+				# cycle through owned decals
+				var dcbtn := _button("CHANGE", Vector2(0, 0), Vector2(140, 48), 20)
+				remove_child(dcbtn)
+				dchb.add_child(dcbtn)
+				var ccx := ci
+				dcbtn.pressed.connect(func(): _cycle_decal(ccx))
+				# color picker (6 presets)
+				var colhb := HBoxContainer.new()
+				colhb.add_theme_constant_override("separation", 6)
+				cvb.add_child(colhb)
+				var cols := [Color(1, 0.3, 0.3), Color(1, 0.8, 0.2), Color(0.3, 1, 0.4), Color(0.3, 0.6, 1), Color(0.8, 0.3, 1), Color(1, 1, 1)]
+				for coli in range(cols.size()):
+					var cb := Button.new()
+					cb.custom_minimum_size = Vector2(44, 44)
+					var csb := StyleBoxFlat.new()
+					csb.bg_color = cols[coli]
+					csb.set_corner_radius_all(22)
+					cb.add_theme_stylebox_override("normal", csb)
+					cb.add_theme_stylebox_override("hover", csb)
+					cb.add_theme_stylebox_override("pressed", csb)
+					colhb.add_child(cb)
+					var colx: Color = cols[coli]
+					var ccx2 := ci
+					cb.pressed.connect(func(): game.set_decal_color(ccx2, colx))
 		_cars_vb.add_child(card)
 	# DECAL SHOP
 	_cars_vb.add_child(_label("— DECAL SHOP —", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.8)))
