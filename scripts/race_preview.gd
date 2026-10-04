@@ -23,6 +23,19 @@ var _coins := []  # {pos, life}
 var _floats := []  # {pos, life, max, text}
 var _time := 0.0
 
+func _night_factor() -> float:
+	# smooth day/night cycle (~4 min), 0=day, 1=night
+	var cycle := fposmod(_time / 240.0, 1.0)
+	# smoothstep between day and night
+	var t := cycle * 2.0
+	if t < 1.0:
+		t = t * t * (3.0 - 2.0 * t)
+		return t
+	else:
+		t = (t - 1.0)
+		t = t * t * (3.0 - 2.0 * t)
+		return 1.0 - t
+
 const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO", "AERO", "LAB"]
 
 # car modes
@@ -587,6 +600,10 @@ func _draw() -> void:
 	if game and float(game.heat_timer) > 0.0:
 		var pulse := 0.10 + 0.05 * sin(Time.get_ticks_msec() / 180.0)
 		draw_rect(Rect2(0, 0, w, size.y), Color(1.0, 0.45, 0.10, pulse))
+	# NIGHT overlay (drawn before cars so headlights punch through)
+	var night := _night_factor()
+	if night > 0.01:
+		draw_rect(Rect2(0, 0, w, size.y), Color(0.02, 0.03, 0.10, night * 0.55))
 	# bays
 	if game:
 		for i in range(10):
@@ -619,12 +636,15 @@ func _draw() -> void:
 		var dir := Vector2(cos(float(sk["angle"])), sin(float(sk["angle"])))
 		var pp: Vector2 = sk["pos"]
 		draw_line(pp - dir * 14.0, pp + dir * 14.0, Color(0.05, 0.05, 0.06, sa * 0.55), 7.0, true)
-	# drift trails (neon glow, over skids)
+	# drift trails (neon glow, over skids) — brighter at night
 	for tr in _trails:
 		var ta: float = float(tr["life"]) / float(tr["max"])
 		var tc: Color = tr["col"]
 		var tp: Vector2 = tr["pos"]
-		draw_circle(tp, 10.0 * ta + 4.0, Color(tc.r, tc.g, tc.b, ta * 0.30))
+		var glow_alpha := ta * (0.30 + night * 0.45)
+		draw_circle(tp, 10.0 * ta + 4.0, Color(tc.r, tc.g, tc.b, glow_alpha))
+		if night > 0.5:
+			draw_circle(tp, 5.0 * ta + 2.0, Color(1, 1, 1, ta * 0.25 * night))
 	# smoke/sparks
 	for s in _smokes:
 		var a: float = float(s["life"]) / float(s["max"])
@@ -802,6 +822,24 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: Str
 		])
 		draw_colored_polygon(body, col)
 	# rarity glow ring (pulsing for mythic)
+	var night := _night_factor()
+	# HEADLIGHTS at night — cone + glow dots
+	if night > 0.3:
+		var hdir := Vector2(cos(yaw), sin(yaw))
+		var hperp := Vector2(-hdir.y, hdir.x)
+		var nose := bp + hdir * 30.0
+		var cone := PackedVector2Array([
+			nose,
+			nose + hdir * 90.0 + hperp * 28.0,
+			nose + hdir * 90.0 - hperp * 28.0,
+		])
+		draw_colored_polygon(cone, Color(1.0, 0.95, 0.75, 0.12 * night))
+		# headlight bulbs
+		draw_circle(nose + hperp * 8.0, 4.0, Color(1.0, 0.95, 0.80, 0.9 * night))
+		draw_circle(nose - hperp * 8.0, 4.0, Color(1.0, 0.95, 0.80, 0.9 * night))
+		# taillight glow
+		var tail := bp - hdir * 32.0
+		draw_circle(tail, 5.0, Color(1.0, 0.15, 0.15, 0.7 * night))
 	var rcol: Color = Economy.RARITY_COLORS.get(rarity, Color(1, 1, 1, 0.3))
 	if rarity == "mythic":
 		var pulse := 0.5 + 0.3 * sin(_time * 4.0)
