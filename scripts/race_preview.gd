@@ -4,17 +4,16 @@ extends Control
 
 var game  # main.gd
 
-# track geometry (top area)
-var _cx := 640.0
-var _cy := 72.0
-var _straight := 380.0
-var _radius := 42.0
+# track geometry (portrait hero: 720x520 canvas)
+var _cx := 360.0
+var _cy := 150.0
+var _straight := 210.0
+var _radius := 68.0
 var _perimeter := 0.0
 
-# bays (bottom area)
-const BAY_Y := 158.0
-const BAY_W := 170.0
-const BAY_H := 52.0
+# bays: 3 cols x 2 rows
+const BAY_W := 200.0
+const BAY_H := 84.0
 
 var _cars := []  # per generator: {mode, track_t, speed, color, bay_t, service_t, pos}
 var _smokes := []
@@ -47,7 +46,9 @@ func _ready() -> void:
 		})
 
 func _bay_pos(i: int) -> Vector2:
-	return Vector2(110.0 + i * 195.0, BAY_Y)
+	var col := i % 3
+	var row := i / 3
+	return Vector2(130.0 + col * 230.0, 345.0 + row * 115.0)
 
 func _process(dt: float) -> void:
 	_time += dt
@@ -196,8 +197,8 @@ func _draw() -> void:
 	var n := 64
 	for i in range(n + 1):
 		pts.append(_track_pos(float(i) / float(n)))
-	draw_polyline(pts, Color(0.16, 0.16, 0.18), 26.0, true)
-	draw_polyline(pts, Color(0.22, 0.22, 0.25), 20.0, true)
+	draw_polyline(pts, Color(0.16, 0.16, 0.18), 40.0, true)
+	draw_polyline(pts, Color(0.22, 0.22, 0.25), 32.0, true)
 	# bays
 	if game:
 		for i in range(6):
@@ -266,8 +267,8 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color) -> void:
 	var yaw := angle + (0.45 if drifting else 0.0)
 	var dir := Vector2(cos(yaw), sin(yaw))
 	var perp := Vector2(-dir.y, dir.x)
-	var l := 18.0
-	var wd := 9.0
+	var l := 26.0
+	var wd := 13.0
 	var body := PackedVector2Array([
 		p + dir * l - perp * wd, p + dir * l + perp * wd,
 		p - dir * l + perp * wd, p - dir * l - perp * wd,

@@ -33,53 +33,53 @@ func build() -> void:
 	bg.color = Color(0.07, 0.06, 0.09)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	# top bar
+	# top bar (portrait: taller, bigger cash)
 	var top := ColorRect.new()
 	top.color = Color(0.10, 0.08, 0.12, 0.95)
 	top.position = Vector2(0, 0)
-	top.size = Vector2(1280, 84)
+	top.size = Vector2(720, 110)
 	add_child(top)
 	var accent := ColorRect.new()
 	accent.color = Color(1.0, 0.62, 0.25)
-	accent.position = Vector2(0, 82)
-	accent.size = Vector2(1280, 3)
+	accent.position = Vector2(0, 107)
+	accent.size = Vector2(720, 3)
 	add_child(accent)
-	_cash_l = _label("$0", 44, Vector2(24, 8), FONT_MONO, Color(0.45, 1.0, 0.55))
+	_cash_l = _label("$0", 52, Vector2(20, 8), FONT_MONO, Color(0.45, 1.0, 0.55))
 	add_child(_cash_l)
-	var title := _label("IDLE GARAGE", 34, Vector2(0, 16), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
+	var title := _label("IDLE GARAGE", 30, Vector2(0, 62), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.custom_minimum_size = Vector2(1280, 50)
+	title.custom_minimum_size = Vector2(720, 40)
 	add_child(title)
-	_ips_l = _label("", 24, Vector2(1280 - 324, 14), FONT_MONO, Color(1.0, 0.85, 0.55))
+	_ips_l = _label("", 30, Vector2(720 - 220, 8), FONT_MONO, Color(1.0, 0.85, 0.55))
 	_ips_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_ips_l.custom_minimum_size = Vector2(300, 36)
+	_ips_l.custom_minimum_size = Vector2(200, 40)
 	add_child(_ips_l)
-	var ips_cap := _label("PER SEC", 16, Vector2(1280 - 324, 50), FONT_HUD, Color(1, 1, 1, 0.5))
+	var ips_cap := _label("PER SEC", 18, Vector2(720 - 220, 48), FONT_HUD, Color(1, 1, 1, 0.5))
 	ips_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	ips_cap.custom_minimum_size = Vector2(300, 24)
+	ips_cap.custom_minimum_size = Vector2(200, 26)
 	add_child(ips_cap)
-	# live drift preview (replaces static garage scene)
+	# live drift preview — HERO, much bigger (portrait)
 	var preview := preload("res://scripts/race_preview.gd").new()
 	preview.game = game
-	preview.position = Vector2(0, 85)
-	preview.size = Vector2(1280, 220)
+	preview.position = Vector2(0, 110)
+	preview.size = Vector2(720, 520)
 	add_child(preview)
 	_preview = preview
-	# tabs
+	# tabs (5 tabs + bulk in one row)
 	var tabs := ["BAYS", "CREW", "SHOP", "AWARDS", "STATS"]
 	for ti in range(5):
-		var tb := _button(tabs[ti], Vector2(24 + ti * 170, 315), Vector2(160, 52), 26)
+		var tb := _button(tabs[ti], Vector2(12 + ti * 122, 642), Vector2(114, 54), 24)
 		var idx := ti
 		tb.pressed.connect(func(): _set_tab(idx))
 		_tab_btns.append(tb)
-	# bulk toggle
-	_bulk_btn = _button("x1", Vector2(1280 - 184, 315), Vector2(160, 52), 26)
+	# bulk toggle (right side of tab row)
+	_bulk_btn = _button("x1", Vector2(720 - 112, 642), Vector2(100, 54), 24)
 	_bulk_btn.pressed.connect(_cycle_bulk)
-	# panels
+	# panels (scrollable card area)
 	for ti in range(5):
 		var p := ScrollContainer.new()
-		p.position = Vector2(16, 378)
-		p.size = Vector2(1248, 326)
+		p.position = Vector2(12, 708)
+		p.size = Vector2(696, 560)
 		p.visible = ti == 0
 		add_child(p)
 		_panels.append(p)
@@ -144,39 +144,33 @@ func _build_bays_panel() -> void:
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
 	# tutorial hint
-	_hint_label = _label("", 26, Vector2(0, 0), FONT_HUD, Color(1.0, 0.85, 0.45))
+	_hint_label = _label("", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.85, 0.45))
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint_label.custom_minimum_size = Vector2(1220, 40)
+	_hint_label.custom_minimum_size = Vector2(680, 36)
 	vb.add_child(_hint_label)
 	for i in range(6):
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(1220, 108)
+		card.custom_minimum_size = Vector2(680, 150)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.11, 0.10, 0.14, 0.95)
 		sb.border_color = Color(1.0, 0.62, 0.25, 0.4)
 		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(10)
+		sb.set_corner_radius_all(12)
 		sb.content_margin_left = 14
 		sb.content_margin_right = 14
-		sb.content_margin_top = 8
-		sb.content_margin_bottom = 8
+		sb.content_margin_top = 10
+		sb.content_margin_bottom = 10
 		card.add_theme_stylebox_override("panel", sb)
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 14)
-		card.add_child(hb)
-		var g: Dictionary = Economy.GENERATORS[i]
-		# info area (left): badge + name + progress — NOT a button anymore,
-		# so scroll-drag works everywhere except the BUY button
 		var tvb := VBoxContainer.new()
-		tvb.custom_minimum_size = Vector2(760, 92)
 		tvb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tvb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hb.add_child(tvb)
+		tvb.add_theme_constant_override("separation", 6)
+		card.add_child(tvb)
+		var g: Dictionary = Economy.GENERATORS[i]
+		# row 1: badge + name + $/s
 		var name_hb := HBoxContainer.new()
 		name_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_hb.add_theme_constant_override("separation", 10)
 		tvb.add_child(name_hb)
-		# badge (clean text, no emoji tofu)
 		var badge := Label.new()
 		badge.text = BADGES[i]
 		badge.add_theme_font_size_override("font_size", 20)
@@ -192,36 +186,44 @@ func _build_bays_panel() -> void:
 		badge.add_theme_stylebox_override("normal", bsb)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_hb.add_child(badge)
-		var name_l := _label("%s" % g["name"], 30, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+		var name_l := _label("%s" % g["name"], 28, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_hb.add_child(name_l)
+		var ips_l := _label("", 24, Vector2(0, 0), FONT_MONO, Color(0.45, 1.0, 0.55))
+		ips_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_hb.add_child(ips_l)
+		# row 2: progress bar (full width)
 		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(740, 22)
+		bar.custom_minimum_size = Vector2(650, 26)
 		bar.max_value = 1.0
 		bar.show_percentage = false
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var bbg := StyleBoxFlat.new()
 		bbg.bg_color = Color(0.06, 0.06, 0.08)
-		bbg.set_corner_radius_all(6)
+		bbg.set_corner_radius_all(8)
 		bar.add_theme_stylebox_override("background", bbg)
 		var bfill := StyleBoxFlat.new()
 		bfill.bg_color = Color(0.45, 1.0, 0.55)
-		bfill.set_corner_radius_all(6)
+		bfill.set_corner_radius_all(8)
 		bar.add_theme_stylebox_override("fill", bfill)
 		tvb.add_child(bar)
+		# row 3: payout info + buy button
+		var bot_hb := HBoxContainer.new()
+		bot_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bot_hb.add_theme_constant_override("separation", 10)
+		tvb.add_child(bot_hb)
 		var info_l := _label("", 22, Vector2(0, 0), FONT_MONO, Color(1, 1, 1, 0.7))
 		info_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tvb.add_child(info_l)
-		# buy button (right)
-		var buy := _button("BUY", Vector2(0, 0), Vector2(400, 92), 30)
-		buy.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		# reparent buy into hb (was added to self by _button)
+		info_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bot_hb.add_child(info_l)
+		var buy := _button("BUY", Vector2(0, 0), Vector2(220, 56), 26)
 		remove_child(buy)
-		hb.add_child(buy)
+		bot_hb.add_child(buy)
 		var idx := i
 		buy.pressed.connect(func(): game.buy_generator(idx))
 		vb.add_child(card)
-		_cards.append({"bar": bar, "info": info_l, "buy": buy, "card": card, "name": name_l})
+		_cards.append({"bar": bar, "info": info_l, "buy": buy, "card": card, "name": name_l, "ips": ips_l})
 
 func _build_crew_panel() -> void:
 	var p: ScrollContainer = _panels[1]
@@ -237,9 +239,10 @@ func _build_crew_panel() -> void:
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 14)
 		var nl := _label("%s\n%s" % [m["name"], g["name"]], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
-		nl.custom_minimum_size = Vector2(760, 70)
+		nl.custom_minimum_size = Vector2(420, 70)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hb.add_child(nl)
-		var btn := _button("HIRE", Vector2(0, 0), Vector2(400, 70), 28)
+		var btn := _button("HIRE", Vector2(0, 0), Vector2(220, 70), 26)
 		remove_child(btn)
 		hb.add_child(btn)
 		var idx := i
@@ -260,9 +263,10 @@ func _build_shop_panel() -> void:
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 14)
 		var nl := _label("%s\n%s" % [up["name"], up["desc"]], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
-		nl.custom_minimum_size = Vector2(760, 70)
+		nl.custom_minimum_size = Vector2(420, 70)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hb.add_child(nl)
-		var btn := _button("BUY", Vector2(0, 0), Vector2(400, 70), 28)
+		var btn := _button("BUY", Vector2(0, 0), Vector2(220, 70), 26)
 		remove_child(btn)
 		hb.add_child(btn)
 		var idx := u
@@ -333,7 +337,7 @@ func _refresh_stats() -> void:
 	add.call("")
 	add.call("FRANCHISE (prestige): reset for stars")
 	add.call("Earn $10M lifetime = 1 star (+10% forever)")
-	var pb := _button("FRANCHISE NOW", Vector2(0, 0), Vector2(400, 70), 28)
+	var pb := _button("FRANCHISE NOW", Vector2(0, 0), Vector2(420, 70), 26)
 	remove_child(pb)
 	_stats_vb.add_child(pb)
 	pb.pressed.connect(func(): game.do_prestige())
@@ -377,8 +381,8 @@ func tick(dt: float) -> void:
 
 func float_text(gen_idx: int, amount: float) -> void:
 	var l := _label("+$%s" % BigNum.fmt(amount), 28, Vector2(0, 0), FONT_MONO, Color(0.45, 1.0, 0.55))
-	# position near the generator card
-	l.position = Vector2(400 + gen_idx * 40, 480)
+	# position near the generator card (portrait: cards start at y=708)
+	l.position = Vector2(300, 760 + gen_idx * 40)
 	_float_layer.add_child(l)
 
 func refresh_all() -> void:
@@ -400,12 +404,18 @@ func refresh_generators() -> void:
 		(c["card"] as Control).visible = unlocked
 		if not unlocked:
 			var nxt: float = g["unlock"]
-			(c["name"] as Label).text = "🔒 Unlock at $%s lifetime" % BigNum.fmt(nxt)
+			(c["name"] as Label).text = "LOCKED — $%s lifetime" % BigNum.fmt(nxt)
+			(c["ips"] as Label).text = ""
+			(c["info"] as Label).text = ""
+			(c["buy"] as Button).disabled = true
+			(c["buy"] as Button).text = "LOCKED"
 			continue
 		(c["name"] as Label).text = "%s  x%d" % [g["name"], owned]
-		var ips := Economy.income_per_sec(i, owned, gm, pm)
-		var pay := Economy.payout_per_cycle(i, owned, gm, pm)
-		(c["info"] as Label).text = "$%s/s  ·  $%s / %s" % [BigNum.fmt(ips), BigNum.fmt(pay), BigNum.fmt_time(float(g["time"]))]
+		var bm: float = game.bay_mult(i)
+		var ips: float = Economy.income_per_sec(i, owned, gm, pm) * bm
+		var pay: float = Economy.payout_per_cycle(i, owned, gm, pm) * bm
+		(c["ips"] as Label).text = "$%s/s" % BigNum.fmt(ips)
+		(c["info"] as Label).text = "$%s / %s" % [BigNum.fmt(pay), BigNum.fmt_time(float(g["time"]))]
 		var buy: Button = c["buy"]
 		var n: int = game.bulk if game.bulk > 0 else Economy.max_affordable(float(g["cost"]), owned, game.cash)
 		if n <= 0:
@@ -458,7 +468,7 @@ func achievement_popup(ach_name: String, bonus: float) -> void:
 	# toast at top of screen
 	var toast := PanelContainer.new()
 	toast.custom_minimum_size = Vector2(600, 90)
-	toast.position = Vector2(340, 100)
+	toast.position = Vector2(60, 200)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.12, 0.10, 0.08, 0.97)
 	sb.border_color = Color(1.0, 0.85, 0.30, 0.95)
@@ -495,7 +505,7 @@ func show_offline_popup(gained: float, away_sec: float) -> void:
 	# popup panel
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(560, 320)
-	panel.position = Vector2(360, 200)
+	panel.position = Vector2(80, 400)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.12, 0.10, 0.15, 0.98)
 	sb.border_color = Color(1.0, 0.62, 0.25, 0.9)
