@@ -39,6 +39,16 @@ const UPGRADES := [
 const COST_GROWTH := 1.15
 const MILESTONE_BONUS := 2.0  # x2 at 25/50/100/200 owned
 
+# Showroom cars: {name, cost, income (mult), speed (mult), style (pts/sec), move, color}
+# move: "drift" (normal), "spin" (360), "reverse" (reverse entry), "wall" (wall tap)
+const CARS := [
+	{"name": "Rust Bucket", "cost": 0.0, "income": 1.0, "speed": 1.0, "style": 1.0, "move": "drift", "color": Color(0.55, 0.55, 0.58)},
+	{"name": "Street S13", "cost": 5000.0, "income": 1.3, "speed": 1.12, "style": 1.4, "move": "spin", "color": Color(0.25, 0.55, 0.95)},
+	{"name": "Drift AE86", "cost": 75000.0, "income": 1.7, "speed": 1.25, "style": 2.0, "move": "reverse", "color": Color(0.95, 0.95, 0.92)},
+	{"name": "Pro FD3S", "cost": 800000.0, "income": 2.2, "speed": 1.4, "style": 2.8, "move": "wall", "color": Color(0.95, 0.30, 0.25)},
+	{"name": "Legend R34", "cost": 8000000.0, "income": 3.0, "speed": 1.6, "style": 4.0, "move": "spin", "color": Color(0.35, 0.45, 0.95)},
+]
+
 # Achievements: {name, desc, kind, target, bonus}
 # kind: "lifetime" (earn X lifetime), "owned" (own X of generator idx),
 #       "mechanics" (hire X), "upgrades" (buy X), "prestige" (prestige X times)

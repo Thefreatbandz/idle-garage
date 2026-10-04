@@ -21,10 +21,6 @@ var _coins := []  # {pos, life}
 var _floats := []  # {pos, life, max, text}
 var _time := 0.0
 
-const CAR_COLORS := [
-	Color(0.95, 0.30, 0.25), Color(0.25, 0.55, 0.95), Color(0.95, 0.75, 0.25),
-	Color(0.35, 0.90, 0.45), Color(0.90, 0.40, 0.80), Color(0.85, 0.85, 0.88),
-]
 const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT"]
 
 # car modes
@@ -40,10 +36,29 @@ func _ready() -> void:
 		_cars.append({
 			"mode": M_TRACK, "track_t": randf(),
 			"speed": 0.10 + randf() * 0.04,
-			"color": CAR_COLORS[i],
 			"bay_t": 0.0, "service_t": 0.0,
+			"track_time": randf_range(0.0, 8.0),
+			"spin_t": 0.0,  # for 360 move
 			"pos": Vector2.ZERO, "angle": 0.0,
 		})
+
+func _car_color(i: int) -> Color:
+	if game:
+		var car: Dictionary = Economy.CARS[int(game.cars_equipped[i])]
+		return car["color"]
+	return Color(0.8, 0.8, 0.8)
+
+func _car_speed_mult(i: int) -> float:
+	if game:
+		var car: Dictionary = Economy.CARS[int(game.cars_equipped[i])]
+		return float(car["speed"])
+	return 1.0
+
+func _car_move(i: int) -> String:
+	if game:
+		var car: Dictionary = Economy.CARS[int(game.cars_equipped[i])]
+		return String(car["move"])
+	return "drift"
 
 func _bay_pos(i: int) -> Vector2:
 	var col := i % 3
@@ -63,25 +78,42 @@ func _process(dt: float) -> void:
 		match int(c["mode"]):
 			M_TRACK:
 				var old_t := float(c["track_t"])
-				c["track_t"] = fmod(old_t + float(c["speed"]) * boost * dt, 1.0)
+				var spd: float = float(c["speed"]) * _car_speed_mult(i) * boost
+				c["track_t"] = fmod(old_t + spd * dt, 1.0)
 				var new_t := float(c["track_t"])
 				c["pos"] = _track_pos(new_t)
 				c["angle"] = _track_angle(new_t)
+				c["track_time"] = float(c["track_time"]) + dt
 				# crossed the finish line -> money float!
 				if new_t < old_t and game:
 					var share: float = game.income_per_sec() / maxf(1.0, float(_owned_count()))
 					_spawn_float(_track_pos(0.0) + Vector2(0, -30), "+$%s" % BigNum.fmt(share))
 					_spawn_coins(_track_pos(0.0))
-				# randomly decide to pull in for service
-				if randf() < dt * 0.15:
+				# pull in for service only after 12s+ on track (no instant bounce)
+				if float(c["track_time"]) > 12.0 and randf() < dt * 0.25:
 					c["mode"] = M_TO_BAY
 					c["bay_t"] = 0.0
-				# drift smoke + coin sparkle in corners
+					c["track_time"] = 0.0
+				# signature move in drift zone
+				var mv := _car_move(i)
 				if _in_drift_zone(new_t):
+					match mv:
+						"spin":
+							# 360 spin: rotate extra
+							c["spin_t"] = float(c["spin_t"]) + dt * 6.0
+						"reverse":
+							# reverse entry handled in draw (flipped yaw)
+							pass
+						"wall":
+							# wall tap: sparks
+							if randf() < dt * 10.0:
+								_spawn_spark(c["pos"])
 					if randf() < 0.4:
 						_spawn_smoke(c["pos"])
 					if randf() < dt * 2.0 and game:
 						_spawn_float(c["pos"] + Vector2(0, -24), "+$%s" % BigNum.fmt(game.income_per_sec() * 0.1))
+				else:
+					c["spin_t"] = 0.0
 			M_TO_BAY:
 				c["bay_t"] = float(c["bay_t"]) + dt * 1.5
 				var bp := _bay_pos(i)
@@ -192,13 +224,24 @@ func _track_angle(t: float) -> float:
 func _draw() -> void:
 	var w := size.x
 	draw_rect(Rect2(0, 0, w, size.y), Color(0.08, 0.07, 0.10))
-	# track
+	# track: outer curb (red/white), then asphalt
 	var pts := PackedVector2Array()
-	var n := 64
+	var n := 72
 	for i in range(n + 1):
 		pts.append(_track_pos(float(i) / float(n)))
-	draw_polyline(pts, Color(0.16, 0.16, 0.18), 40.0, true)
-	draw_polyline(pts, Color(0.22, 0.22, 0.25), 32.0, true)
+	# red/white curb effect: alternate segments
+	for i in range(0, n, 2):
+		var seg := PackedVector2Array([pts[i], pts[i + 1], pts[i + 2] if i + 2 <= n else pts[n]])
+		var curb_col := Color(0.85, 0.20, 0.20) if (i / 2) % 2 == 0 else Color(0.92, 0.92, 0.92)
+		if seg.size() >= 2:
+			draw_polyline(seg, curb_col, 46.0, true)
+	draw_polyline(pts, Color(0.15, 0.15, 0.17), 40.0, true)
+	draw_polyline(pts, Color(0.21, 0.21, 0.24), 32.0, true)
+	# checkered start/finish line
+	var sf := _track_pos(0.0)
+	for k in range(4):
+		var ck := Color(1, 1, 1) if k % 2 == 0 else Color(0.1, 0.1, 0.1)
+		draw_rect(Rect2(sf + Vector2(-3, -16 + k * 8), Vector2(6, 8)), ck)
 	# bays
 	if game:
 		for i in range(6):
@@ -245,7 +288,19 @@ func _draw() -> void:
 				continue
 			var c: Dictionary = _cars[i]
 			var drifting := int(c["mode"]) == M_TRACK and _in_drift_zone(float(c["track_t"]))
-			_draw_car(c["pos"], float(c["angle"]), drifting, c["color"])
+			var mv := _car_move(i)
+			var extra_yaw := 0.0
+			if drifting:
+				match mv:
+					"spin":
+						extra_yaw = float(c["spin_t"])  # 360 spin
+					"reverse":
+						extra_yaw = PI * 0.75  # reverse entry (backwards)
+					"wall":
+						extra_yaw = 0.6
+					_:
+						extra_yaw = 0.45
+			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i))
 	# status
 	var st := "WARMING UP"
 	var nowned := _owned_count()
@@ -264,7 +319,7 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_RIGHT, -1, 24, Color(0.45, 1.0, 0.55))
 
 func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color) -> void:
-	var yaw := angle + (0.45 if drifting else 0.0)
+	var yaw := angle  # angle already includes drift/move yaw from caller
 	var dir := Vector2(cos(yaw), sin(yaw))
 	var perp := Vector2(-dir.y, dir.x)
 	var l := 26.0

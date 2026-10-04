@@ -13,6 +13,10 @@ var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
 var prestige_count := 0
 var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
+var cars_owned := [true, false, false, false, false]
+var cars_equipped := [0, 0, 0, 0, 0, 0]  # car index per generator bay
+var style_meter := 0.0  # 0..100, fills from drifting
+var heat_timer := 0.0  # >0 = 2x HEAT bonus active
 var bulk := 1  # 1, 10, 100, -1 (MAX)
 var start_time := 0
 
@@ -51,9 +55,22 @@ func _process(dt: float) -> void:
 		progress[i] += dt / t
 		if progress[i] >= 1.0:
 			progress[i] = 0.0
-			var pay := Economy.payout_per_cycle(i, owned[i], gmult, pmult) * bay_mult(i)
+			var pay: float = Economy.payout_per_cycle(i, owned[i], gmult, pmult) * bay_mult(i) * heat_mult()
 			earn(pay)
 			_ui.float_text(i, pay)
+	# style meter fills from equipped cars drifting; full = 30s 2x HEAT
+	var style_rate := 0.0
+	for i in range(6):
+		if owned[i] > 0:
+			var car: Dictionary = Economy.CARS[cars_equipped[i]]
+			style_rate += float(car["style"])
+	style_meter += style_rate * dt * 0.5
+	if style_meter >= 100.0:
+		style_meter = 0.0
+		heat_timer = 30.0
+		_ui.heat_popup()
+	if heat_timer > 0.0:
+		heat_timer -= dt
 	_ui.tick(dt)
 	# autosave every 15s
 	_save_t += dt
@@ -122,15 +139,39 @@ func prestige_mult() -> float:
 
 func bay_mult(i: int) -> float:
 	# mechanic hired = +50% income for their bay
-	return 1.5 if mechanics[i] else 1.0
+	var m := 1.5 if mechanics[i] else 1.0
+	# equipped car income mult
+	var car: Dictionary = Economy.CARS[cars_equipped[i]]
+	m *= float(car["income"])
+	return m
+
+func heat_mult() -> float:
+	return 2.0 if heat_timer > 0.0 else 1.0
 
 func income_per_sec() -> float:
 	var total := 0.0
 	var gm := global_mult()
 	var pm := prestige_mult()
+	var hm := heat_mult()
 	for i in range(6):
-		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i)
+		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm
 	return total
+
+func buy_car(ci: int) -> void:
+	if cars_owned[ci]:
+		return
+	var cost: float = Economy.CARS[ci]["cost"]
+	if spend(cost):
+		cars_owned[ci] = true
+		_ui.refresh_all()
+		_save()
+
+func equip_car(bay: int, ci: int) -> void:
+	if not cars_owned[ci]:
+		return
+	cars_equipped[bay] = ci
+	_ui.refresh_all()
+	_save()
 
 func buy_generator(i: int) -> void:
 	var g: Dictionary = Economy.GENERATORS[i]
@@ -189,6 +230,7 @@ func _save() -> void:
 		"owned": owned, "mechanics": mechanics, "upgrades": upgrades_bought,
 		"stars": stars, "prestige_count": prestige_count,
 		"achievements": achievements,
+		"cars_owned": cars_owned, "cars_equipped": cars_equipped,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -217,6 +259,12 @@ func _load() -> void:
 	stars = int(d.get("stars", 0))
 	prestige_count = int(d.get("prestige_count", 0))
 	achievements = d.get("achievements", [])
+	var co: Array = d.get("cars_owned", [true, false, false, false, false])
+	for i in range(5):
+		cars_owned[i] = bool(co[i]) if i < co.size() else (i == 0)
+	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0])
+	for i in range(6):
+		cars_equipped[i] = int(ce[i]) if i < ce.size() else 0
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0

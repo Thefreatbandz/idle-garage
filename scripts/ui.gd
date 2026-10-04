@@ -65,18 +65,18 @@ func build() -> void:
 	preview.size = Vector2(720, 520)
 	add_child(preview)
 	_preview = preview
-	# tabs (5 tabs + bulk in one row)
-	var tabs := ["BAYS", "CREW", "SHOP", "AWARDS", "STATS"]
-	for ti in range(5):
-		var tb := _button(tabs[ti], Vector2(12 + ti * 122, 642), Vector2(114, 54), 24)
+	# tabs (6 tabs + bulk in one row)
+	var tabs := ["BAYS", "CREW", "SHOP", "CARS", "AWARDS", "STATS"]
+	for ti in range(6):
+		var tb := _button(tabs[ti], Vector2(12 + ti * 100, 642), Vector2(96, 54), 20)
 		var idx := ti
 		tb.pressed.connect(func(): _set_tab(idx))
 		_tab_btns.append(tb)
 	# bulk toggle (right side of tab row)
-	_bulk_btn = _button("x1", Vector2(720 - 112, 642), Vector2(100, 54), 24)
+	_bulk_btn = _button("x1", Vector2(720 - 100, 642), Vector2(88, 54), 20)
 	_bulk_btn.pressed.connect(_cycle_bulk)
 	# panels (scrollable card area)
-	for ti in range(5):
+	for ti in range(6):
 		var p := ScrollContainer.new()
 		p.position = Vector2(12, 708)
 		p.size = Vector2(696, 560)
@@ -86,6 +86,7 @@ func build() -> void:
 	_build_bays_panel()
 	_build_crew_panel()
 	_build_shop_panel()
+	_build_cars_panel()
 	_build_awards_panel()
 	_build_stats_panel()
 	# floating text layer
@@ -278,8 +279,109 @@ var _shop_btns := []
 var _preview: Control
 var _hint_label: Label
 
-func _build_awards_panel() -> void:
+func _build_cars_panel() -> void:
 	var p: ScrollContainer = _panels[3]
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 10)
+	p.add_child(vb)
+	_cars_vb = vb
+	_refresh_cars()
+
+var _cars_vb: VBoxContainer
+
+func _refresh_cars() -> void:
+	if not _cars_vb:
+		return
+	for c in _cars_vb.get_children():
+		c.queue_free()
+	# style meter header
+	var heat_txt := "HEAT ACTIVE! 2x income (%ds)" % int(game.heat_timer) if game.heat_timer > 0 else "Style %d/100 — full meter = 30s 2x HEAT" % int(game.style_meter)
+	var hm := _label(heat_txt, 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.2) if game.heat_timer > 0 else Color(1, 1, 1, 0.7))
+	hm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cars_vb.add_child(hm)
+	var sbar := ProgressBar.new()
+	sbar.custom_minimum_size = Vector2(660, 18)
+	sbar.max_value = 100.0
+	sbar.value = game.style_meter
+	sbar.show_percentage = false
+	var sbg := StyleBoxFlat.new()
+	sbg.bg_color = Color(0.06, 0.06, 0.08)
+	sbg.set_corner_radius_all(6)
+	sbar.add_theme_stylebox_override("background", sbg)
+	var sfill := StyleBoxFlat.new()
+	sfill.bg_color = Color(1.0, 0.5, 0.2)
+	sfill.set_corner_radius_all(6)
+	sbar.add_theme_stylebox_override("fill", sfill)
+	_cars_vb.add_child(sbar)
+	# car cards
+	for ci in range(Economy.CARS.size()):
+		var car: Dictionary = Economy.CARS[ci]
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(680, 170)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.11, 0.10, 0.14, 0.95)
+		sb.border_color = Color(1.0, 0.62, 0.25, 0.4)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(12)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 10
+		sb.content_margin_bottom = 10
+		card.add_theme_stylebox_override("panel", sb)
+		var cvb := VBoxContainer.new()
+		cvb.add_theme_constant_override("separation", 6)
+		card.add_child(cvb)
+		# name + color dot
+		var nhb := HBoxContainer.new()
+		nhb.add_theme_constant_override("separation", 10)
+		cvb.add_child(nhb)
+		var dot := ColorRect.new()
+		dot.color = car["color"]
+		dot.custom_minimum_size = Vector2(28, 28)
+		nhb.add_child(dot)
+		var nl := _label(String(car["name"]), 28, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nhb.add_child(nl)
+		# stats
+		var move_names := {"drift": "Drift", "spin": "360 Spin", "reverse": "Reverse Entry", "wall": "Wall Tap"}
+		var sl := _label("Income x%.1f  ·  Speed x%.2f  ·  Move: %s" % [float(car["income"]), float(car["speed"]), move_names.get(String(car["move"]), "?")],
+			22, Vector2(0, 0), FONT_MONO, Color(1, 1, 1, 0.7))
+		cvb.add_child(sl)
+		# buy or equip
+		var owned: bool = game.cars_owned[ci]
+		if not owned:
+			var bhb := HBoxContainer.new()
+			cvb.add_child(bhb)
+			var cost_l := _label("$%s" % BigNum.fmt(float(car["cost"])), 26, Vector2(0, 0), FONT_MONO, Color(1.0, 0.85, 0.30))
+			cost_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bhb.add_child(cost_l)
+			var buy := _button("BUY", Vector2(0, 0), Vector2(200, 56), 26)
+			remove_child(buy)
+			bhb.add_child(buy)
+			var cidx := ci
+			buy.pressed.connect(func(): game.buy_car(cidx))
+			buy.disabled = game.cash < float(car["cost"])
+		else:
+			var ehb := HBoxContainer.new()
+			ehb.add_theme_constant_override("separation", 6)
+			cvb.add_child(ehb)
+			var el := _label("Equip to bay:", 22, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7))
+			ehb.add_child(el)
+			for b in range(6):
+				var bb := _button(str(b + 1), Vector2(0, 0), Vector2(56, 48), 22)
+				remove_child(bb)
+				ehb.add_child(bb)
+				var bidx := b
+				var cidx2 := ci
+				bb.pressed.connect(func(): game.equip_car(bidx, cidx2))
+				# highlight if equipped here
+				if game.cars_equipped[b] == ci:
+					bb.modulate = Color(0.45, 1.0, 0.55)
+		_cars_vb.add_child(card)
+
+func _build_awards_panel() -> void:
+	var p: ScrollContainer = _panels[4]
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 10)
@@ -311,7 +413,7 @@ func _refresh_awards() -> void:
 	_awards_vb.move_child(head, 0)
 
 func _build_stats_panel() -> void:
-	var p: ScrollContainer = _panels[4]
+	var p: ScrollContainer = _panels[5]
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 12)
@@ -344,12 +446,14 @@ func _refresh_stats() -> void:
 
 func _set_tab(t: int) -> void:
 	_tab = t
-	for i in range(5):
+	for i in range(6):
 		_panels[i].visible = i == t
 		# highlight active tab
 		var tb: Button = _tab_btns[i]
 		tb.modulate = Color(1, 1, 1) if i == t else Color(1, 1, 1, 0.55)
 	if t == 3:
+		_refresh_cars()
+	if t == 4:
 		_refresh_awards()
 
 func _cycle_bulk() -> void:
@@ -492,6 +596,29 @@ func achievement_popup(ach_name: String, bonus: float) -> void:
 	vb.add_child(n)
 	add_child(toast)
 	# auto-dismiss after 3s
+	var tw := create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_callback(toast.queue_free)
+
+func heat_popup() -> void:
+	var toast := PanelContainer.new()
+	toast.custom_minimum_size = Vector2(600, 80)
+	toast.position = Vector2(60, 300)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.15, 0.08, 0.05, 0.97)
+	sb.border_color = Color(1.0, 0.4, 0.1, 0.95)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	toast.add_theme_stylebox_override("panel", sb)
+	var t := _label("HEAT! 2x INCOME FOR 30s", 30, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.5, 0.15))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.custom_minimum_size = Vector2(560, 50)
+	toast.add_child(t)
+	add_child(toast)
 	var tw := create_tween()
 	tw.tween_interval(3.0)
 	tw.tween_callback(toast.queue_free)
