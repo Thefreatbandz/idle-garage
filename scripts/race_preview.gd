@@ -17,6 +17,7 @@ const BAY_H := 84.0
 
 var _cars := []  # per generator: {mode, track_t, speed, color, bay_t, service_t, pos}
 var _smokes := []
+var _skids := []  # persistent skid marks: {pos, angle, life}
 var _coins := []  # {pos, life}
 var _floats := []  # {pos, life, max, text}
 var _time := 0.0
@@ -167,6 +168,9 @@ func _process(dt: float) -> void:
 		s["life"] = float(s["life"]) - dt
 		s["pos"] = (s["pos"] as Vector2) + Vector2(0, -14) * dt
 	_smokes = _smokes.filter(func(s): return float(s["life"]) > 0.0)
+	for sk in _skids:
+		sk["life"] = float(sk["life"]) - dt
+	_skids = _skids.filter(func(sk): return float(sk["life"]) > 0.0)
 	for cn in _coins:
 		cn["life"] = float(cn["life"]) - dt
 		cn["pos"] = (cn["pos"] as Vector2) + Vector2(randf_range(-20, 20), -40) * dt
@@ -181,6 +185,11 @@ func _process(dt: float) -> void:
 
 func _spawn_smoke(p: Vector2) -> void:
 	_smokes.append({"pos": p + Vector2(randf_range(-8, 8), 0), "life": 0.9, "max": 0.9, "size": randf_range(6, 12)})
+
+func _spawn_skid(p: Vector2, angle: float) -> void:
+	_skids.append({"pos": p, "angle": angle, "life": 8.0, "max": 8.0})
+	if _skids.size() > 120:
+		_skids = _skids.slice(_skids.size() - 120)
 
 func _spawn_spark(p: Vector2) -> void:
 	_smokes.append({"pos": p + Vector2(randf_range(-14, 14), randf_range(-8, 8)), "life": 0.4, "max": 0.4, "size": randf_range(3, 5)})
@@ -299,6 +308,10 @@ func _draw() -> void:
 	# theme label
 	draw_string(ThemeDB.fallback_font, Vector2(16, 30), theme["name"],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.5))
+	# HEAT glow overlay
+	if game and float(game.heat_timer) > 0.0:
+		var pulse := 0.10 + 0.05 * sin(Time.get_ticks_msec() / 180.0)
+		draw_rect(Rect2(0, 0, w, size.y), Color(1.0, 0.45, 0.10, pulse))
 	# bays
 	if game:
 		for i in range(6):
@@ -325,6 +338,12 @@ func _draw() -> void:
 				var pr: float = game.progress[i]
 				draw_rect(Rect2(bp - Vector2(BAY_W / 2, BAY_H / 2 + 4), Vector2(BAY_W * pr, 3)),
 					Color(0.45, 1.0, 0.55))
+	# skid marks (under cars, over track)
+	for sk in _skids:
+		var sa: float = float(sk["life"]) / float(sk["max"])
+		var dir := Vector2(cos(float(sk["angle"])), sin(float(sk["angle"])))
+		var pp: Vector2 = sk["pos"]
+		draw_line(pp - dir * 14.0, pp + dir * 14.0, Color(0.05, 0.05, 0.06, sa * 0.55), 7.0, true)
 	# smoke/sparks
 	for s in _smokes:
 		var a: float = float(s["life"]) / float(s["max"])
@@ -345,6 +364,8 @@ func _draw() -> void:
 				continue
 			var c: Dictionary = _cars[i]
 			var drifting := int(c["mode"]) == M_TRACK and _in_drift_zone(float(c["track_t"]))
+			if drifting:
+				_spawn_skid(c["pos"], float(c["angle"]))
 			var mv := _car_move(i)
 			var extra_yaw := 0.0
 			if drifting:

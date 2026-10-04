@@ -304,6 +304,13 @@ func _refresh_cars() -> void:
 	for c in _cars_vb.get_children():
 		c.queue_free()
 	_car_buy_btns.clear()
+	# collection counter
+	var owned_n := 0
+	for c in game.cars_owned:
+		if c:
+			owned_n += 1
+	var coll := _label("COLLECTION %d/%d" % [owned_n, game.cars_owned.size()], 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.75, 0.30))
+	_cars_vb.add_child(coll)
 	# style meter header
 	var heat_txt := "HEAT ACTIVE! 2x income (%ds)" % int(game.heat_timer) if game.heat_timer > 0 else "Style %d/100 — full meter = 30s 2x HEAT" % int(game.style_meter)
 	var hm := _label(heat_txt, 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.2) if game.heat_timer > 0 else Color(1, 1, 1, 0.7))
