@@ -185,7 +185,8 @@ func mission_progress(id: String, amount: float) -> void:
 		missions_done[mi] = true
 		cash += float(Economy.MISSIONS[mi]["reward"])
 		total_earned += float(Economy.MISSIONS[mi]["reward"])
-		_ui.mission_popup(String(Economy.MISSIONS[mi]["label"]))
+		if _ui:
+			_ui.mission_popup(String(Economy.MISSIONS[mi]["label"]))
 		_save()
 
 func _process(dt: float) -> void:

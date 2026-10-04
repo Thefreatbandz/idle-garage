@@ -82,6 +82,8 @@ func build() -> void:
 		p.position = Vector2(12, 708)
 		p.size = Vector2(696, 560)
 		p.visible = ti == 0
+		p.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		p.follow_focus = false
 		add_child(p)
 		_panels.append(p)
 	_build_bays_panel()
@@ -571,6 +573,7 @@ func tick(dt: float) -> void:
 		_btn_t = 0.0
 		_refresh_button_states()
 		_refresh_missions()
+	_tick_heat_tap(dt)
 	# floating texts
 	for ft in _float_layer.get_children():
 		ft.position.y -= 60.0 * dt
@@ -861,11 +864,21 @@ func show_daily_popup(streak: int) -> void:
 	)
 	add_child(panel)
 
+var _heat_tap_panel: PanelContainer
+var _heat_tap_bar: ProgressBar
+var _heat_tap_label: Label
+var _heat_tap_time := 0.0
+var _heat_tap_marker := 0.0
+var _heat_tap_dir := 1.0
+var _heat_tap_count := 0
+
 func show_heat_tap() -> void:
+	# clear any stuck previous instance
+	_hide_heat_tap()
 	# 5-second tap-the-green-zone minigame; perfect taps extend HEAT
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(600, 140)
-	panel.position = Vector2(60, 480)
+	_heat_tap_panel = PanelContainer.new()
+	_heat_tap_panel.custom_minimum_size = Vector2(600, 140)
+	_heat_tap_panel.position = Vector2(60, 480)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.12, 0.08, 0.06, 0.97)
 	sb.border_color = Color(1.0, 0.45, 0.12, 0.95)
@@ -875,56 +888,59 @@ func show_heat_tap() -> void:
 	sb.content_margin_right = 20
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
-	panel.add_theme_stylebox_override("panel", sb)
+	_heat_tap_panel.add_theme_stylebox_override("panel", sb)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 8)
-	panel.add_child(vb)
-	var t := _label("TAP IN THE GREEN! (+5s HEAT)", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.custom_minimum_size = Vector2(560, 32)
-	vb.add_child(t)
-	var bar := ProgressBar.new()
-	bar.custom_minimum_size = Vector2(560, 36)
-	bar.max_value = 100.0
-	bar.value = 0.0
-	bar.show_percentage = false
-	vb.add_child(bar)
-	add_child(panel)
-	var taps := 0
-	var time_left := 5.0
-	var marker := 0.0
-	var dir := 1.0
-	# green zone: 40-60
-	var zone_l := 40.0
-	var zone_r := 60.0
+	_heat_tap_panel.add_child(vb)
+	_heat_tap_label = _label("TAP IN THE GREEN! (+5s HEAT)", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+	_heat_tap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_heat_tap_label.custom_minimum_size = Vector2(560, 32)
+	vb.add_child(_heat_tap_label)
+	_heat_tap_bar = ProgressBar.new()
+	_heat_tap_bar.custom_minimum_size = Vector2(560, 36)
+	_heat_tap_bar.max_value = 100.0
+	_heat_tap_bar.value = 0.0
+	_heat_tap_bar.show_percentage = false
+	vb.add_child(_heat_tap_bar)
+	add_child(_heat_tap_panel)
+	_heat_tap_time = 5.0
+	_heat_tap_marker = 0.0
+	_heat_tap_dir = 1.0
+	_heat_tap_count = 0
 	var tap_btn := _button("TAP!", Vector2(0, 0), Vector2(560, 56), 26)
 	remove_child(tap_btn)
 	vb.add_child(tap_btn)
-	tap_btn.pressed.connect(func():
-		if marker >= zone_l and marker <= zone_r and taps < 3:
-			taps += 1
-			game.heat_timer = minf(game.heat_timer + 5.0, 45.0)
-			t.text = "NICE! +%ds HEAT (%d/3)" % [taps * 5, taps]
-	)
-	# animate in _process via a timer
-	var timer := Timer.new()
-	timer.wait_time = 0.05
-	timer.autostart = true
-	add_child(timer)
-	timer.timeout.connect(func():
-		time_left -= 0.05
-		marker += dir * 4.0
-		if marker >= 100.0:
-			marker = 100.0
-			dir = -1.0
-		elif marker <= 0.0:
-			marker = 0.0
-			dir = 1.0
-		bar.value = marker
-		if time_left <= 0.0:
-			timer.queue_free()
-			panel.queue_free()
-	)
+	tap_btn.pressed.connect(_on_heat_tap)
+
+func _on_heat_tap() -> void:
+	if _heat_tap_time <= 0.0 or _heat_tap_count >= 3:
+		return
+	if _heat_tap_marker >= 40.0 and _heat_tap_marker <= 60.0:
+		_heat_tap_count += 1
+		game.heat_timer = minf(game.heat_timer + 5.0, 45.0)
+		_heat_tap_label.text = "NICE! +%ds HEAT (%d/3)" % [_heat_tap_count * 5, _heat_tap_count]
+
+func _hide_heat_tap() -> void:
+	_heat_tap_time = 0.0
+	if is_instance_valid(_heat_tap_panel):
+		_heat_tap_panel.queue_free()
+	_heat_tap_panel = null
+
+func _tick_heat_tap(dt: float) -> void:
+	if _heat_tap_time <= 0.0:
+		return
+	_heat_tap_time -= dt
+	_heat_tap_marker += _heat_tap_dir * 80.0 * dt
+	if _heat_tap_marker >= 100.0:
+		_heat_tap_marker = 100.0
+		_heat_tap_dir = -1.0
+	elif _heat_tap_marker <= 0.0:
+		_heat_tap_marker = 0.0
+		_heat_tap_dir = 1.0
+	if is_instance_valid(_heat_tap_bar):
+		_heat_tap_bar.value = _heat_tap_marker
+	if _heat_tap_time <= 0.0:
+		_hide_heat_tap()
 
 func show_offline_popup(gained: float, away_sec: float) -> void:
 	# dim background
