@@ -47,6 +47,7 @@ var nitro_timer := 0.0  # Nitro Boost active duration
 
 var _save_t := 0.0
 var _ui: CanvasLayer
+var audio: Node  # SFX manager
 
 func _init_car_data() -> void:
 	# initialize per-car parts/decals (25 cars)
@@ -90,6 +91,7 @@ func buy_part(car_idx: int, part_idx: int) -> void:
 		return
 	cash -= cost
 	car_parts[car_idx][part_idx] += 1
+	audio.play("buy")
 	_save()
 	_ui.refresh_all()
 
@@ -103,6 +105,7 @@ func buy_decal(decal_idx: int) -> void:
 		return
 	cash -= cost
 	decals_owned[decal_idx] = true
+	audio.play("buy")
 	_save()
 	_ui.refresh_all()
 
@@ -186,6 +189,7 @@ func meet_claim() -> void:
 		var prize: float = Economy.MEET_PRIZES[rank - 1]
 		cash += prize
 		total_earned += prize
+		audio.play("meet_win")
 		if rank == 1:
 			meet_wins += 1
 			# champion decals
@@ -202,6 +206,8 @@ func _ready() -> void:
 	_init_car_data()
 	_load()
 	_calc_offline()
+	audio = preload("res://scripts/audio.gd").new()
+	add_child(audio)
 	_ui = preload("res://scripts/ui.gd").new()
 	_ui.game = self
 	add_child(_ui)
@@ -388,6 +394,7 @@ func _process(dt: float) -> void:
 		style_meter = 0.0
 		heat_timer = 30.0
 		heat_triggers += 1
+		audio.play("heat")
 		_ui.heat_popup()
 		_ui.show_heat_tap()
 		mission_progress("heat", 1.0)
@@ -485,6 +492,7 @@ func check_achievements() -> void:
 		if done:
 			achievements.append(ai)
 			if _ui:
+				audio.play("achievement")
 				_ui.achievement_popup(String(a["name"]), float(a["bonus"]))
 			else:
 				_pending_ach_popups.append(ai)
@@ -532,6 +540,7 @@ func equip_car(bay: int, ci: int) -> void:
 		return
 	cars_equipped[bay] = ci
 	_ui.refresh_all()
+	audio.play("buy")
 	_save()
 
 func buy_track(ti: int) -> void:
@@ -549,6 +558,7 @@ func select_track(ti: int) -> void:
 		return
 	track_selected = ti
 	_ui.refresh_all()
+	audio.play("buy")
 	_save()
 
 func buy_generator(i: int) -> void:
@@ -568,6 +578,7 @@ func buy_generator(i: int) -> void:
 func buy_mechanic(i: int) -> void:
 	if mechanics[i]:
 		return
+	audio.play("buy")
 	var cost: float = Economy.MECHANICS[i]["cost"]
 	if spend(cost):
 		mechanics[i] = true
@@ -601,6 +612,7 @@ func do_prestige() -> void:
 	# achievements persist through prestige (they're the keeper)
 	_ui.refresh_all()
 	check_achievements()
+	audio.play("buy")
 	_save()
 
 func empire_mult() -> float:
@@ -615,6 +627,7 @@ func use_power(pi: int) -> void:
 	if power_cooldowns[pi] > 0.0:
 		return
 	var cd: float = Economy.POWERS[pi]["cooldown"]
+	audio.play("power")
 	power_cooldowns[pi] = cd
 	match pi:
 		0:  # Nitro Boost

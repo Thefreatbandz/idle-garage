@@ -770,6 +770,15 @@ func _refresh_stats() -> void:
 	remove_child(eb)
 	_stats_vb.add_child(eb)
 	eb.pressed.connect(func(): game.do_empire())
+	# sound toggle
+	_stats_vb.add_child(_label("", 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.5)))
+	var sb := _button("SOUND: ON", Vector2(0, 0), Vector2(420, 60), 24)
+	remove_child(sb)
+	_stats_vb.add_child(sb)
+	sb.pressed.connect(func():
+		var m: bool = game.audio.toggle_mute()
+		sb.text = "SOUND: OFF" if m else "SOUND: ON"
+	)
 
 func _set_tab(t: int) -> void:
 	_tab = t
