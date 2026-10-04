@@ -124,6 +124,15 @@ const UPGRADES := [
 	{"name": "Aero Tunnel", "desc": "+100% all income", "cost": 600000000.0, "mult": 2.0},
 	{"name": "Works Team", "desc": "+125% all income", "cost": 3000000000.0, "mult": 2.25},
 	{"name": "Hall of Fame", "desc": "+200% all income", "cost": 20000000000.0, "mult": 3.0},
+	{"name": "Turbo Dyno", "desc": "+150% all income", "cost": 60000000000.0, "mult": 2.5},
+	{"name": "Carbon Chassis Lab", "desc": "+175% all income", "cost": 150000000000.0, "mult": 2.75},
+	{"name": "Pro Drift Squad", "desc": "+200% all income", "cost": 400000000000.0, "mult": 3.0},
+	{"name": "Global Franchise", "desc": "+250% all income", "cost": 1000000000000.0, "mult": 3.5},
+	{"name": "Motorsport Empire HQ", "desc": "+300% all income", "cost": 2500000000000.0, "mult": 4.0},
+	{"name": "Legend Factory", "desc": "+400% all income", "cost": 6000000000000.0, "mult": 5.0},
+	{"name": "Apex Dynasty", "desc": "+500% all income", "cost": 15000000000000.0, "mult": 6.0},
+	{"name": "Drift Gods", "desc": "+750% all income", "cost": 40000000000000.0, "mult": 8.5},
+	{"name": "Immortal Garage", "desc": "+1000% all income", "cost": 100000000000000.0, "mult": 11.0},
 ]
 
 const COST_GROWTH := 1.15
