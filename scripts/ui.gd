@@ -141,6 +141,8 @@ func _build_garage_scene(pos: Vector2, size: Vector2) -> void:
 	sign.custom_minimum_size = Vector2(1280, 60)
 	scene.add_child(sign)
 	# lifts (one per generator, appear when unlocked)
+	_lift_nodes.clear()
+	_car_nodes.clear()
 	for i in range(6):
 		var lift := ColorRect.new()
 		lift.name = "Lift%d" % i
@@ -149,6 +151,7 @@ func _build_garage_scene(pos: Vector2, size: Vector2) -> void:
 		lift.size = Vector2(150, 90)
 		lift.visible = false
 		scene.add_child(lift)
+		_lift_nodes.append(lift)
 		var car := ColorRect.new()
 		car.name = "Car%d" % i
 		var cols := [Color(0.85, 0.85, 0.88), Color(0.25, 0.55, 0.95),
@@ -159,6 +162,7 @@ func _build_garage_scene(pos: Vector2, size: Vector2) -> void:
 		car.size = Vector2(120, 40)
 		car.visible = false
 		scene.add_child(car)
+		_car_nodes.append(car)
 
 func _build_bays_panel() -> void:
 	var p: ScrollContainer = _panels[0]
@@ -277,6 +281,8 @@ func _build_shop_panel() -> void:
 		_shop_btns.append({"label": nl, "btn": btn, "idx": u})
 
 var _shop_btns := []
+var _lift_nodes := []
+var _car_nodes := []
 
 func _build_stats_panel() -> void:
 	var p: ScrollContainer = _panels[3]
@@ -408,11 +414,52 @@ func refresh_shop() -> void:
 			btn.text = "BUY $%s" % BigNum.fmt(cost)
 			btn.disabled = game.cash < cost
 
+func show_offline_popup(gained: float, away_sec: float) -> void:
+	# dim background
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	# popup panel
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(560, 320)
+	panel.position = Vector2(360, 200)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.15, 0.98)
+	sb.border_color = Color(1.0, 0.62, 0.25, 0.9)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 28
+	sb.content_margin_right = 28
+	sb.content_margin_top = 24
+	sb.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", sb)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 14)
+	panel.add_child(vb)
+	var t := _label("WELCOME BACK! 🎉", 36, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.custom_minimum_size = Vector2(500, 50)
+	vb.add_child(t)
+	var away_str := BigNum.fmt_time(away_sec)
+	var msg := _label("Your crew earned while you were away:\n%s  (%s)" % [BigNum.fmt(gained), away_str], 28, Vector2(0, 0), FONT_MONO, Color(0.45, 1.0, 0.55))
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg.custom_minimum_size = Vector2(500, 90)
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(msg)
+	var btn := _button("COLLECT", Vector2(0, 0), Vector2(500, 64), 30)
+	remove_child(btn)
+	vb.add_child(btn)
+	btn.pressed.connect(func():
+		dim.queue_free()
+		panel.queue_free())
+	add_child(panel)
+
 func _update_garage_scene() -> void:
 	# show lifts/cars for unlocked generators
 	for i in range(6):
 		var g: Dictionary = Economy.GENERATORS[i]
 		var unlocked: bool = game.lifetime >= float(g["unlock"]) or game.owned[i] > 0
-		# find the lift/car nodes (they're in the scene control)
-		# simplified: just track via visible flags stored on cards
-		pass
+		if i < _lift_nodes.size():
+			(_lift_nodes[i] as Control).visible = unlocked
+			(_car_nodes[i] as Control).visible = unlocked

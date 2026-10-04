@@ -27,6 +27,9 @@ func _ready() -> void:
 	add_child(_ui)
 	_ui.build()
 	_ui.refresh_all()
+	if not _ui_pending_offline.is_empty():
+		_ui.show_offline_popup(float(_ui_pending_offline[0]), float(_ui_pending_offline[1]))
+		_ui_pending_offline = []
 
 func _process(dt: float) -> void:
 	# clamp dt (tab back after hours shouldn't simulate frame-by-frame)
