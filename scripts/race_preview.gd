@@ -660,7 +660,7 @@ func _draw() -> void:
 						extra_yaw = 0.6
 					_:
 						extra_yaw = 0.45
-			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i), _car_livery(i), _car_rarity(i), int(game.cars_equipped[i]))
+			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i), _car_livery(i), _car_rarity(i), int(game.cars_equipped[i]), int(game.car_decals[int(game.cars_equipped[i])]), game.car_decal_colors[int(game.cars_equipped[i])])
 	# status
 	var st := "WARMING UP"
 	var nowned := _owned_count()
@@ -678,7 +678,58 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(w - 24, 28), ips,
 		HORIZONTAL_ALIGNMENT_RIGHT, -1, 24, Color(0.45, 1.0, 0.55))
 
-func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String, car_idx: int) -> void:
+func _draw_decal(bp: Vector2, yaw: float, decal_idx: int, col: Color) -> void:
+	var dir := Vector2(cos(yaw), sin(yaw))
+	var perp := Vector2(-dir.y, dir.x)
+	var style: String = Economy.DECALS[decal_idx]["style"]
+	match style:
+		"stripe":
+			# racing stripe down the center
+			draw_line(bp - dir * 28.0, bp + dir * 28.0, col, 10.0, true)
+			draw_line(bp - dir * 28.0, bp + dir * 28.0, Color(1, 1, 1, 0.9), 4.0, true)
+		"number":
+			# big number on roof
+			draw_circle(bp, 14.0, Color(1, 1, 1, 0.95))
+			draw_arc(bp, 14.0, 0, TAU, 16, col, 3.0)
+			draw_string(ThemeDB.fallback_font, bp + Vector2(-8, 7), str(decal_idx + 7),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 20, col)
+		"flames":
+			# flame licks on hood
+			for i in range(5):
+				var fx := bp + dir * (8.0 + float(i) * 5.0) + perp * sin(float(i) * 2.0) * 8.0
+				draw_circle(fx, 6.0 - float(i), Color(col.r, col.g * 0.5, 0.1, 0.9))
+		"lightning":
+			# lightning bolt
+			var pts := PackedVector2Array([
+				bp + Vector2(-6, -18), bp + Vector2(4, -4), bp + Vector2(-2, -2),
+				bp + Vector2(6, 18), bp + Vector2(-4, 2), bp + Vector2(2, 0),
+			])
+			# rotate to car yaw
+			var rp := PackedVector2Array()
+			for pt in pts:
+				var rel := pt - bp
+				rp.append(bp + rel.rotated(yaw + PI * 0.5))
+			draw_colored_polygon(rp, col)
+		"checker":
+			# checkered band
+			for i in range(6):
+				var cx := bp - perp * 15.0 + perp * float(i) * 6.0
+				var ck := Color(1, 1, 1, 0.9) if i % 2 == 0 else Color(0.1, 0.1, 0.1, 0.9)
+				draw_line(cx - dir * 20.0, cx + dir * 20.0, ck, 5.0, true)
+		"crown":
+			# crown on roof
+			var crown := PackedVector2Array([
+				bp + Vector2(-12, 6), bp + Vector2(-12, -6), bp + Vector2(-6, 0),
+				bp + Vector2(0, -10), bp + Vector2(6, 0), bp + Vector2(12, -6),
+				bp + Vector2(12, 6),
+			])
+			var rp2 := PackedVector2Array()
+			for pt in crown:
+				var rel := pt - bp
+				rp2.append(bp + rel.rotated(yaw + PI * 0.5))
+			draw_colored_polygon(rp2, col)
+
+func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String, car_idx: int, decal_idx: int = -1, decal_col: Color = Color(1, 1, 1)) -> void:
 	var yaw := angle
 	# suspension bounce (subtle)
 	var bounce := sin(_time * 18.0 + float(car_idx) * 1.7) * 1.5
@@ -704,7 +755,10 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: Str
 		var rear := bp - dir * 30.0
 		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.08, 0.08, 0.10, 0.95), 8.0, true)
 		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.25, 0.25, 0.30, 0.9), 3.0, true)
-		# DECAL — racing number roundel on the hood
+		# CUSTOM DECAL from decal shop
+		if decal_idx >= 0:
+			_draw_decal(bp, yaw, decal_idx, decal_col)
+		# DECAL — racing number roundel on the hood (default livery)
 		var hood := bp + dir * 12.0
 		draw_circle(hood, 11.0, Color(1, 1, 1, 0.92))
 		draw_arc(hood, 11.0, 0, TAU, 16, Color(0.15, 0.15, 0.18, 0.9), 2.0)

@@ -17,6 +17,10 @@ var empire_count := 0
 var heat_triggers := 0  # total HEAT activations (achievements)
 var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
 var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+var car_parts := []  # per car: [engine_lv, tires_lv, aero_lv]
+var car_decals := []  # per car: decal style index (-1 = none)
+var car_decal_colors := []  # per car: Color
+var decals_owned := []  # decal shop ownership
 var cars_equipped := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # car index per generator bay
 var tracks_owned := [true, false, false, false, false, false, false, false]
 var track_selected := 0  # index into Economy.TRACKS
@@ -39,8 +43,81 @@ var nitro_timer := 0.0  # Nitro Boost active duration
 var _save_t := 0.0
 var _ui: CanvasLayer
 
+func _init_car_data() -> void:
+	# initialize per-car parts/decals (25 cars)
+	car_parts.clear()
+	car_decals.clear()
+	car_decal_colors.clear()
+	for i in range(25):
+		car_parts.append([0, 0, 0])
+		car_decals.append(-1)
+		car_decal_colors.append(Color(1, 1, 1))
+	if decals_owned.is_empty():
+		for i in range(Economy.DECALS.size()):
+			decals_owned.append(false)
+
+func part_mult(car_idx: int, part_idx: int) -> float:
+	# +8% per level
+	var lv: int = car_parts[car_idx][part_idx]
+	return 1.0 + float(lv) * 0.08
+
+func part_cost(car_idx: int, part_idx: int) -> float:
+	var lv: int = car_parts[car_idx][part_idx]
+	var car: Dictionary = Economy.CARS[car_idx]
+	var tier_mult := 1.0
+	match String(car["rarity"]):
+		"rare": tier_mult = 3.0
+		"exotic": tier_mult = 10.0
+		"legendary": tier_mult = 30.0
+		"mythic": tier_mult = 100.0
+	var base: float = Economy.PARTS[part_idx]["base_cost"]
+	return base * tier_mult * pow(2.5, lv)
+
+func buy_part(car_idx: int, part_idx: int) -> void:
+	if car_idx < 0 or car_idx >= 25 or part_idx < 0 or part_idx >= 3:
+		return
+	if not cars_owned[car_idx]:
+		return
+	if car_parts[car_idx][part_idx] >= Economy.PART_MAX_LEVEL:
+		return
+	var cost := part_cost(car_idx, part_idx)
+	if cash < cost:
+		return
+	cash -= cost
+	car_parts[car_idx][part_idx] += 1
+	_save()
+	_ui.refresh_all()
+
+func buy_decal(decal_idx: int) -> void:
+	if decal_idx < 0 or decal_idx >= Economy.DECALS.size():
+		return
+	if decals_owned[decal_idx]:
+		return
+	var cost: float = Economy.DECALS[decal_idx]["cost"]
+	if cash < cost:
+		return
+	cash -= cost
+	decals_owned[decal_idx] = true
+	_save()
+	_ui.refresh_all()
+
+func equip_decal(car_idx: int, decal_idx: int) -> void:
+	if car_idx < 0 or car_idx >= 25:
+		return
+	if decal_idx >= 0 and not decals_owned[decal_idx]:
+		return
+	car_decals[car_idx] = decal_idx
+	_save()
+
+func set_decal_color(car_idx: int, col: Color) -> void:
+	if car_idx < 0 or car_idx >= 25:
+		return
+	car_decal_colors[car_idx] = col
+	_save()
+
 func _ready() -> void:
 	start_time = Time.get_unix_time_from_system()
+	_init_car_data()
 	_load()
 	_calc_offline()
 	_ui = preload("res://scripts/ui.gd").new()
@@ -223,7 +300,7 @@ func _process(dt: float) -> void:
 	for i in range(10):
 		if owned[i] > 0:
 			var car: Dictionary = Economy.CARS[cars_equipped[i]]
-			style_rate += float(car["style"])
+			style_rate += float(car["style"]) * part_mult(cars_equipped[i], 2)
 	style_meter += style_rate * dt * 0.5 * sponsor_style_mult()
 	if style_meter >= 100.0:
 		style_meter = 0.0
@@ -339,9 +416,9 @@ func prestige_mult() -> float:
 func bay_mult(i: int) -> float:
 	# mechanic hired = +50% income for their bay
 	var m := 1.5 if mechanics[i] else 1.0
-	# equipped car income mult
+	# equipped car income mult (with parts)
 	var car: Dictionary = Economy.CARS[cars_equipped[i]]
-	m *= float(car["income"])
+	m *= float(car["income"]) * part_mult(cars_equipped[i], 0)
 	return m
 
 func heat_mult() -> float:
@@ -512,6 +589,8 @@ func _save() -> void:
 		"last_daily": last_daily, "daily_streak": daily_streak,
 		"mission_date": mission_date, "missions_done": missions_done, "mission_prog": mission_prog,
 		"sponsors_active": sponsors_active,
+		"car_parts": car_parts, "car_decals": car_decals,
+		"car_decal_colors": car_decal_colors, "decals_owned": decals_owned,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -572,6 +651,25 @@ func _load() -> void:
 	var sa: Array = d.get("sponsors_active", [-1, -1, -1])
 	for i in range(3):
 		sponsors_active[i] = int(sa[i]) if i < sa.size() else -1
+	# car parts/decals (v13+)
+	var cp: Array = d.get("car_parts", [])
+	if cp.size() == 25:
+		for i in range(25):
+			var pl: Array = cp[i]
+			for j in range(3):
+				car_parts[i][j] = int(pl[j]) if j < pl.size() else 0
+	var cd: Array = d.get("car_decals", [])
+	if cd.size() == 25:
+		for i in range(25):
+			car_decals[i] = int(cd[i])
+	var do_: Array = d.get("decals_owned", [])
+	if do_.size() == Economy.DECALS.size():
+		for i in range(do_.size()):
+			decals_owned[i] = bool(do_[i])
+	var cdc: Array = d.get("car_decal_colors", [])
+	if cdc.size() == 25:
+		for i in range(25):
+			car_decal_colors[i] = cdc[i]
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0

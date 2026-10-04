@@ -131,6 +131,25 @@ const MILESTONE_BONUS := 2.0  # x2 at 25/50/100/200 owned
 
 # Showroom cars: {name, cost, income (mult), speed (mult), style (pts/sec), move, color, livery, rarity}
 # rarity: "regular" (+income), "rare" (+income/speed), "exotic" (+income/style),
+# Car parts: per-car upgrades (Engine/Tires/Aero, 10 levels each)
+# Each level: +8% to its stat. Cost scales with car tier + part level.
+const PARTS := [
+	{"name": "Engine", "desc": "+8% income per level", "stat": "income", "base_cost": 5000.0},
+	{"name": "Tires", "desc": "+8% speed per level", "stat": "speed", "base_cost": 3000.0},
+	{"name": "Aero", "desc": "+8% style per level", "stat": "style", "base_cost": 4000.0},
+]
+const PART_MAX_LEVEL := 10
+
+# Decal shop: buyable styles + custom colors
+const DECALS := [
+	{"name": "Racing Stripe", "cost": 10000.0, "style": "stripe"},
+	{"name": "Number Roundel", "cost": 25000.0, "style": "number"},
+	{"name": "Flames", "cost": 100000.0, "style": "flames"},
+	{"name": "Lightning", "cost": 250000.0, "style": "lightning"},
+	{"name": "Checker", "cost": 500000.0, "style": "checker"},
+	{"name": "Crown", "cost": 1000000.0, "style": "crown"},
+]
+
 #         "legendary" (+income/speed/style, unique moves)
 # livery: "plain", "stripe", "number", "twotone"
 const CARS := [
