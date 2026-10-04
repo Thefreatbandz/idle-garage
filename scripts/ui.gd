@@ -662,14 +662,20 @@ func _refresh_cars() -> void:
 	_cars_vb.add_child(_label("%s (weekly)" % meet_name, 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7)))
 	if game.meet_entered < 0:
 		_cars_vb.add_child(_label("Enter your best car:", 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85)))
+		# top 5 by score only (full list broke scroll)
+		var scored := []
 		for ci in range(Economy.CARS.size()):
-			if not game.cars_owned[ci]:
-				continue
+			if game.cars_owned[ci]:
+				scored.append({"ci": ci, "score": game.meet_score(ci)})
+		scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+		var show_n := mini(5, scored.size())
+		for si in range(show_n):
+			var ci: int = scored[si]["ci"]
 			var car: Dictionary = Economy.CARS[ci]
 			var mhb := HBoxContainer.new()
 			mhb.add_theme_constant_override("separation", 10)
 			_cars_vb.add_child(mhb)
-			var ml := _label("%s (score %d)" % [car["name"], int(game.meet_score(ci))], 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+			var ml := _label("%s (score %d)" % [car["name"], int(scored[si]["score"])], 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 			ml.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			mhb.add_child(ml)
 			var mbtn := _button("ENTER", Vector2(0, 0), Vector2(140, 52), 22)
