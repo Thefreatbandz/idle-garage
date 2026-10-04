@@ -5,6 +5,13 @@ const FONT_DISPLAY := preload("res://assets/fonts/Orbitron.ttf")
 const FONT_HUD := preload("res://assets/fonts/Rajdhani.ttf")
 const FONT_MONO := preload("res://assets/fonts/ShareTechMono.ttf")
 
+# clean text badges (emoji renders as tofu on some phones)
+const BADGES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT"]
+const BADGE_COLORS := [
+	Color(0.95, 0.62, 0.25), Color(0.45, 0.55, 0.65), Color(0.95, 0.35, 0.55),
+	Color(0.35, 0.75, 0.95), Color(0.95, 0.75, 0.25), Color(0.90, 0.30, 0.25),
+]
+
 var game  # main.gd
 var _cash_l: Label
 var _ips_l: Label
@@ -51,8 +58,13 @@ func build() -> void:
 	ips_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	ips_cap.custom_minimum_size = Vector2(300, 24)
 	add_child(ips_cap)
-	# garage scene strip (animated 2D)
-	_build_garage_scene(Vector2(0, 85), Vector2(1280, 220))
+	# live drift preview (replaces static garage scene)
+	var preview := preload("res://scripts/race_preview.gd").new()
+	preview.game = game
+	preview.position = Vector2(0, 85)
+	preview.size = Vector2(1280, 220)
+	add_child(preview)
+	_preview = preview
 	# tabs
 	var tabs := ["BAYS", "CREW", "SHOP", "STATS"]
 	for ti in range(4):
@@ -124,52 +136,17 @@ func _button(t: String, pos: Vector2, size: Vector2, font := 28) -> Button:
 	add_child(b)
 	return b
 
-func _build_garage_scene(pos: Vector2, size: Vector2) -> void:
-	# simple animated 2D garage: floor, lifts, cars appear as you unlock
-	var scene := Control.new()
-	scene.position = pos
-	scene.size = size
-	add_child(scene)
-	var floor_c := ColorRect.new()
-	floor_c.color = Color(0.13, 0.12, 0.16)
-	floor_c.position = Vector2(0, 140)
-	floor_c.size = Vector2(1280, 80)
-	scene.add_child(floor_c)
-	# neon sign
-	var sign := _label("IDLE GARAGE", 40, Vector2(0, 18), FONT_DISPLAY, Color(1.0, 0.45, 0.75))
-	sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sign.custom_minimum_size = Vector2(1280, 60)
-	scene.add_child(sign)
-	# lifts (one per generator, appear when unlocked)
-	_lift_nodes.clear()
-	_car_nodes.clear()
-	for i in range(6):
-		var lift := ColorRect.new()
-		lift.name = "Lift%d" % i
-		lift.color = Color(0.20, 0.18, 0.24)
-		lift.position = Vector2(80 + i * 195, 110)
-		lift.size = Vector2(150, 90)
-		lift.visible = false
-		scene.add_child(lift)
-		_lift_nodes.append(lift)
-		var car := ColorRect.new()
-		car.name = "Car%d" % i
-		var cols := [Color(0.85, 0.85, 0.88), Color(0.25, 0.55, 0.95),
-			Color(0.95, 0.35, 0.55), Color(0.95, 0.75, 0.25),
-			Color(0.35, 0.90, 0.45), Color(0.90, 0.30, 0.25)]
-		car.color = cols[i]
-		car.position = Vector2(95 + i * 195, 130)
-		car.size = Vector2(120, 40)
-		car.visible = false
-		scene.add_child(car)
-		_car_nodes.append(car)
-
 func _build_bays_panel() -> void:
 	var p: ScrollContainer = _panels[0]
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
+	# tutorial hint
+	_hint_label = _label("", 26, Vector2(0, 0), FONT_HUD, Color(1.0, 0.85, 0.45))
+	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_label.custom_minimum_size = Vector2(1220, 40)
+	vb.add_child(_hint_label)
 	for i in range(6):
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(1220, 108)
@@ -202,9 +179,29 @@ func _build_bays_panel() -> void:
 		var tvb := VBoxContainer.new()
 		tvb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tap.add_child(tvb)
-		var name_l := _label("%s %s" % [g["icon"], g["name"]], 30, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+		var name_hb := HBoxContainer.new()
+		name_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_hb.add_theme_constant_override("separation", 10)
+		tvb.add_child(name_hb)
+		# badge (clean text, no emoji tofu)
+		var badge := Label.new()
+		badge.text = BADGES[i]
+		badge.add_theme_font_size_override("font_size", 20)
+		badge.add_theme_font_override("font", FONT_HUD)
+		badge.add_theme_color_override("font_color", Color(0.08, 0.07, 0.10))
+		var bsb := StyleBoxFlat.new()
+		bsb.bg_color = BADGE_COLORS[i]
+		bsb.set_corner_radius_all(6)
+		bsb.content_margin_left = 10
+		bsb.content_margin_right = 10
+		bsb.content_margin_top = 4
+		bsb.content_margin_bottom = 4
+		badge.add_theme_stylebox_override("normal", bsb)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_hb.add_child(badge)
+		var name_l := _label("%s" % g["name"], 30, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tvb.add_child(name_l)
+		name_hb.add_child(name_l)
 		var bar := ProgressBar.new()
 		bar.custom_minimum_size = Vector2(740, 22)
 		bar.max_value = 1.0
@@ -246,7 +243,7 @@ func _build_crew_panel() -> void:
 		var m: Dictionary = Economy.MECHANICS[i]
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 14)
-		var nl := _label("👨‍🔧 %s\n%s" % [m["name"], g["name"]], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+		var nl := _label("%s\n%s" % [m["name"], g["name"]], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 		nl.custom_minimum_size = Vector2(760, 70)
 		hb.add_child(nl)
 		var btn := _button("HIRE", Vector2(0, 0), Vector2(400, 70), 28)
@@ -281,8 +278,8 @@ func _build_shop_panel() -> void:
 		_shop_btns.append({"label": nl, "btn": btn, "idx": u})
 
 var _shop_btns := []
-var _lift_nodes := []
-var _car_nodes := []
+var _preview: Control
+var _hint_label: Label
 
 func _build_stats_panel() -> void:
 	var p: ScrollContainer = _panels[3]
@@ -303,11 +300,11 @@ func _refresh_stats() -> void:
 	var add := func(t: String):
 		var l := _label(t, 26, Vector2(0, 0), FONT_MONO, Color(1, 1, 1, 0.85))
 		_stats_vb.add_child(l)
-	add.call("💰 Cash: $%s" % BigNum.fmt(game.cash))
-	add.call("📈 Lifetime: $%s" % BigNum.fmt(game.lifetime))
-	add.call("🏆 All-time: $%s" % BigNum.fmt(game.total_earned))
-	add.call("⚡ Income/sec: $%s" % BigNum.fmt(game.income_per_sec()))
-	add.call("⭐ Reputation stars: %d (+%d%% income)" % [game.stars, game.stars * 10])
+	add.call("Cash: $%s" % BigNum.fmt(game.cash))
+	add.call("Lifetime: $%s" % BigNum.fmt(game.lifetime))
+	add.call("All-time: $%s" % BigNum.fmt(game.total_earned))
+	add.call("Income/sec: $%s" % BigNum.fmt(game.income_per_sec()))
+	add.call("Reputation stars: %d (+%d%% income)" % [game.stars, game.stars * 10])
 	add.call("")
 	add.call("FRANCHISE (prestige): reset for stars")
 	add.call("Earn $10M lifetime = 1 star (+10% forever)")
@@ -362,7 +359,7 @@ func refresh_all() -> void:
 	refresh_crew()
 	refresh_shop()
 	_refresh_stats()
-	_update_garage_scene()
+	_update_hint()
 
 func refresh_generators() -> void:
 	var gm: float = game.global_mult()
@@ -377,7 +374,7 @@ func refresh_generators() -> void:
 			var nxt: float = g["unlock"]
 			(c["name"] as Label).text = "🔒 Unlock at $%s lifetime" % BigNum.fmt(nxt)
 			continue
-		(c["name"] as Label).text = "%s %s  x%d" % [g["icon"], g["name"], owned]
+		(c["name"] as Label).text = "%s  x%d" % [g["name"], owned]
 		var ips := Economy.income_per_sec(i, owned, gm, pm)
 		var pay := Economy.payout_per_cycle(i, owned, gm, pm)
 		(c["info"] as Label).text = "$%s/s  ·  $%s / %s" % [BigNum.fmt(ips), BigNum.fmt(pay), BigNum.fmt_time(float(g["time"]))]
@@ -414,6 +411,21 @@ func refresh_shop() -> void:
 			btn.text = "BUY $%s" % BigNum.fmt(cost)
 			btn.disabled = game.cash < cost
 
+func _update_hint() -> void:
+	if not _hint_label:
+		return
+	# contextual tutorial: guide the first 5 minutes
+	if game.owned[0] <= 1 and game.cash < 50.0 and not game.mechanics[0]:
+		_hint_label.text = "TAP the Oil Change Bay to work! Earn $25 per job."
+	elif not game.mechanics[0] and game.cash >= 150.0:
+		_hint_label.text = "Hire MARCO in the CREW tab — he'll work the bay for you, forever."
+	elif game.owned[1] == 0 and game.lifetime >= 500.0:
+		_hint_label.text = "Tire Shop unlocked! Buy it for bigger payouts."
+	elif game.income_per_sec() > 0 and game.upgrades_bought.is_empty() and game.cash >= 1000.0:
+		_hint_label.text = "Check the SHOP tab — global upgrades boost ALL income."
+	else:
+		_hint_label.text = ""
+
 func show_offline_popup(gained: float, away_sec: float) -> void:
 	# dim background
 	var dim := ColorRect.new()
@@ -437,7 +449,7 @@ func show_offline_popup(gained: float, away_sec: float) -> void:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 14)
 	panel.add_child(vb)
-	var t := _label("WELCOME BACK! 🎉", 36, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
+	var t := _label("WELCOME BACK!", 36, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.62, 0.25))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.custom_minimum_size = Vector2(500, 50)
 	vb.add_child(t)
@@ -454,12 +466,3 @@ func show_offline_popup(gained: float, away_sec: float) -> void:
 		dim.queue_free()
 		panel.queue_free())
 	add_child(panel)
-
-func _update_garage_scene() -> void:
-	# show lifts/cars for unlocked generators
-	for i in range(6):
-		var g: Dictionary = Economy.GENERATORS[i]
-		var unlocked: bool = game.lifetime >= float(g["unlock"]) or game.owned[i] > 0
-		if i < _lift_nodes.size():
-			(_lift_nodes[i] as Control).visible = unlocked
-			(_car_nodes[i] as Control).visible = unlocked

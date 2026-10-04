@@ -6,7 +6,7 @@ const SAVE_PATH := "user://idle_garage.save"
 var cash := 0.0
 var lifetime := 0.0  # lifetime earnings (this prestige)
 var total_earned := 0.0  # all-time (for achievements)
-var owned := [0, 0, 0, 0, 0, 0]  # per generator
+var owned := [1, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
 var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
 var running := [false, false, false, false, false, false]  # bar active
 var mechanics := [false, false, false, false, false, false]
@@ -131,7 +131,7 @@ func do_prestige() -> void:
 	stars += new_stars
 	cash = 0.0
 	lifetime = 0.0
-	owned = [0, 0, 0, 0, 0, 0]
+	owned = [1, 0, 0, 0, 0, 0]
 	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	running = [false, false, false, false, false, false]
 	mechanics = [false, false, false, false, false, false]
@@ -170,6 +170,12 @@ func _load() -> void:
 	upgrades_bought = d.get("upgrades", [])
 	stars = int(d.get("stars", 0))
 	_last_time = float(d.get("time", 0.0))
+	# migration: old saves started with 0 bays and $0 (soft-locked)
+	var total_owned := 0
+	for i in range(6):
+		total_owned += owned[i]
+	if total_owned == 0:
+		owned[0] = 1
 
 var _last_time := 0.0
 
