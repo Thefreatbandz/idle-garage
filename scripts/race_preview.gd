@@ -29,9 +29,17 @@ const M_TO_BAY := 1
 const M_BAY := 2
 const M_TO_TRACK := 3
 
+var _car_tex: Array = []  # preloaded car sprites, null = procedural fallback
+
 func _ready() -> void:
 	_perimeter = 4.0 * _straight + 2.0 * PI * _radius
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in range(12):
+		var path := "res://assets/cars/car_%02d.png" % i
+		if ResourceLoader.exists(path):
+			_car_tex.append(load(path))
+		else:
+			_car_tex.append(null)
 	for i in range(6):
 		_cars.append({
 			"mode": M_TRACK, "track_t": randf(),
@@ -312,7 +320,7 @@ func _draw() -> void:
 						extra_yaw = 0.6
 					_:
 						extra_yaw = 0.45
-			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i), _car_livery(i), _car_rarity(i))
+			_draw_car(c["pos"], float(c["angle"]) + extra_yaw, drifting, _car_color(i), _car_livery(i), _car_rarity(i), int(game.cars_equipped[i]))
 	# status
 	var st := "WARMING UP"
 	var nowned := _owned_count()
@@ -330,43 +338,25 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(w - 24, 28), ips,
 		HORIZONTAL_ALIGNMENT_RIGHT, -1, 24, Color(0.45, 1.0, 0.55))
 
-func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String) -> void:
-	var yaw := angle  # angle already includes drift/move yaw from caller
-	var dir := Vector2(cos(yaw), sin(yaw))
-	var perp := Vector2(-dir.y, dir.x)
-	var l := 26.0
-	var wd := 13.0
-	var body := PackedVector2Array([
-		p + dir * l - perp * wd, p + dir * l + perp * wd,
-		p - dir * l + perp * wd, p - dir * l - perp * wd,
-	])
-	draw_colored_polygon(body, col)
-	# livery designs
-	match livery:
-		"stripe":
-			# racing stripe down the middle
-			var st := PackedVector2Array([
-				p + dir * l - perp * wd * 0.3, p + dir * l + perp * wd * 0.3,
-				p - dir * l + perp * wd * 0.3, p - dir * l - perp * wd * 0.3,
-			])
-			draw_colored_polygon(st, Color(1, 1, 1, 0.85))
-		"number":
-			# door number roundel
-			draw_circle(p, 8.0, Color(1, 1, 1, 0.9))
-			draw_circle(p, 8.0, col.darkened(0.3), false, 2.0)
-		"twotone":
-			# two-tone: dark rear half
-			var rear := PackedVector2Array([
-				p - dir * l * 0.1 - perp * wd, p - dir * l * 0.1 + perp * wd,
-				p - dir * l + perp * wd, p - dir * l - perp * wd,
-			])
-			draw_colored_polygon(rear, col.darkened(0.45))
-	# windshield
-	var ws := PackedVector2Array([
-		p + dir * l * 0.45 - perp * wd * 0.7, p + dir * l * 0.45 + perp * wd * 0.7,
-		p + dir * l * 0.05 + perp * wd * 0.7, p + dir * l * 0.05 - perp * wd * 0.7,
-	])
-	draw_colored_polygon(ws, Color(0.1, 0.12, 0.16))
+func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String, car_idx: int) -> void:
+	var yaw := angle
+	# sprite (Kenney, faces up) — rotate so its nose follows travel dir
+	var tex: Texture2D = _car_tex[car_idx] if car_idx < _car_tex.size() else null
+	if tex != null:
+		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.42, 0.42))
+		draw_texture(tex, -tex.get_size() * 0.5)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		# procedural fallback
+		var dir := Vector2(cos(yaw), sin(yaw))
+		var perp := Vector2(-dir.y, dir.x)
+		var l := 26.0
+		var wd := 13.0
+		var body := PackedVector2Array([
+			p + dir * l - perp * wd, p + dir * l + perp * wd,
+			p - dir * l + perp * wd, p - dir * l - perp * wd,
+		])
+		draw_colored_polygon(body, col)
 	# rarity glow ring
 	var rcol: Color = Economy.RARITY_COLORS.get(rarity, Color(1, 1, 1, 0.3))
 	if rarity == "legendary":

@@ -334,14 +334,23 @@ func _refresh_cars() -> void:
 		var cvb := VBoxContainer.new()
 		cvb.add_theme_constant_override("separation", 6)
 		card.add_child(cvb)
-		# name + color dot + rarity
+		# name + sprite + rarity
 		var nhb := HBoxContainer.new()
 		nhb.add_theme_constant_override("separation", 10)
 		cvb.add_child(nhb)
-		var dot := ColorRect.new()
-		dot.color = car["color"]
-		dot.custom_minimum_size = Vector2(28, 28)
-		nhb.add_child(dot)
+		var spath := "res://assets/cars/car_%02d.png" % ci
+		if ResourceLoader.exists(spath):
+			var tr := TextureRect.new()
+			tr.texture = load(spath)
+			tr.custom_minimum_size = Vector2(48, 64)
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			nhb.add_child(tr)
+		else:
+			var dot := ColorRect.new()
+			dot.color = car["color"]
+			dot.custom_minimum_size = Vector2(28, 28)
+			nhb.add_child(dot)
 		var nl := _label(String(car["name"]), 28, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
 		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nhb.add_child(nl)
