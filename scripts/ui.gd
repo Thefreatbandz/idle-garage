@@ -6,11 +6,12 @@ const FONT_HUD := preload("res://assets/fonts/Rajdhani.ttf")
 const FONT_MONO := preload("res://assets/fonts/ShareTechMono.ttf")
 
 # clean text badges (emoji renders as tofu on some phones)
-const BADGES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO"]
+const BADGES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO", "AERO", "LAB"]
 const BADGE_COLORS := [
 	Color(0.95, 0.62, 0.25), Color(0.45, 0.55, 0.65), Color(0.95, 0.35, 0.55),
 	Color(0.35, 0.75, 0.95), Color(0.95, 0.75, 0.25), Color(0.90, 0.30, 0.25),
-	Color(0.55, 0.85, 0.95), Color(0.75, 0.45, 0.95),
+	Color(0.55, 0.85, 0.95), Color(0.75, 0.45, 0.95), Color(0.30, 0.80, 0.70),
+	Color(0.85, 0.55, 0.95),
 ]
 
 var game  # main.gd
@@ -163,7 +164,7 @@ func _build_bays_panel() -> void:
 	_missions_vb.add_theme_constant_override("separation", 6)
 	vb.add_child(_missions_vb)
 	_refresh_missions()
-	for i in range(8):
+	for i in range(10):
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(680, 150)
 		var sb := StyleBoxFlat.new()
@@ -251,7 +252,7 @@ func _build_crew_panel() -> void:
 	p.add_child(vb)
 	var hint := _label("Mechanics boost their bay's income by +50%.", 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7))
 	vb.add_child(hint)
-	for i in range(8):
+	for i in range(10):
 		var g: Dictionary = Economy.GENERATORS[i]
 		var m: Dictionary = Economy.MECHANICS[i]
 		var hb := HBoxContainer.new()
@@ -298,12 +299,57 @@ func _build_shop_panel() -> void:
 	_sponsors_vb.add_theme_constant_override("separation", 8)
 	vb.add_child(_sponsors_vb)
 	_refresh_sponsors()
+	# powers
+	var ph := _label("— POWERS —", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+	vb.add_child(ph)
+	_powers_vb = VBoxContainer.new()
+	_powers_vb.add_theme_constant_override("separation", 8)
+	vb.add_child(_powers_vb)
+	_refresh_powers()
 
 var _shop_btns := []
 var _sponsors_vb: VBoxContainer
+var _powers_vb: VBoxContainer
 var _preview: Control
 var _hint_label: Label
 var _missions_vb: VBoxContainer
+
+func _refresh_powers() -> void:
+	if not _powers_vb or not game:
+		return
+	for c in _powers_vb.get_children():
+		c.queue_free()
+	for pi in range(Economy.POWERS.size()):
+		var p: Dictionary = Economy.POWERS[pi]
+		var cd: float = game.power_cooldowns[pi]
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(672, 96)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
+		sb.border_color = Color(1.0, 0.6, 0.25, 0.55)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(14)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 10
+		sb.content_margin_bottom = 10
+		card.add_theme_stylebox_override("panel", sb)
+		_powers_vb.add_child(card)
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 4)
+		card.add_child(vb)
+		var nm := _label(String(p["name"]), 22, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+		vb.add_child(nm)
+		var ds := _label(String(p["desc"]), 18, Vector2(0, 0), FONT_HUD, Color(0.75, 0.75, 0.78))
+		vb.add_child(ds)
+		var btn := _button("USE", Vector2(0, 0), Vector2(96, 72), 22)
+		remove_child(btn)
+		card.add_child(btn)
+		btn.position = Vector2(560, 12)
+		if cd > 0.0:
+			btn.disabled = true
+			btn.text = "%ds" % int(cd)
+		btn.pressed.connect(func(): game.use_power(pi); _refresh_powers())
 
 func _refresh_missions() -> void:
 	if not _missions_vb or not game:
@@ -534,6 +580,15 @@ func _refresh_stats() -> void:
 	remove_child(pb)
 	_stats_vb.add_child(pb)
 	pb.pressed.connect(func(): game.do_prestige())
+	# Motorsport Empire (second prestige)
+	add.call("")
+	add.call("MOTORSPORT EMPIRE (2nd prestige)")
+	add.call("Requires 25 stars. Resets stars/tracks/cars.")
+	add.call("+1 Empire Point per 25 stars (+25% forever each)")
+	var eb := _button("GO EMPIRE", Vector2(0, 0), Vector2(420, 70), 26)
+	remove_child(eb)
+	_stats_vb.add_child(eb)
+	eb.pressed.connect(func(): game.do_empire())
 
 func _set_tab(t: int) -> void:
 	_tab = t
@@ -564,7 +619,7 @@ func tick(dt: float) -> void:
 	_cash_l.text = "$%s" % BigNum.fmt(game.cash)
 	_ips_l.text = "$%s" % BigNum.fmt(game.income_per_sec())
 	# update generator bars (every frame)
-	for i in range(8):
+	for i in range(10):
 		var c: Dictionary = _cards[i]
 		(c["bar"] as ProgressBar).value = game.progress[i]
 	# refresh button affordability 2x/sec (fixes stale disabled states)
@@ -573,6 +628,7 @@ func tick(dt: float) -> void:
 		_btn_t = 0.0
 		_refresh_button_states()
 		_refresh_missions()
+		_refresh_powers()
 	_tick_heat_tap(dt)
 	# floating texts
 	for ft in _float_layer.get_children():
@@ -585,7 +641,7 @@ var _btn_t := 0.0
 
 func _refresh_button_states() -> void:
 	# generator buys
-	for i in range(8):
+	for i in range(10):
 		var c: Dictionary = _cards[i]
 		var g: Dictionary = Economy.GENERATORS[i]
 		var owned: int = game.owned[i]
@@ -630,7 +686,7 @@ func refresh_all() -> void:
 func refresh_generators() -> void:
 	var gm: float = game.global_mult()
 	var pm: float = game.prestige_mult()
-	for i in range(8):
+	for i in range(10):
 		var g: Dictionary = Economy.GENERATORS[i]
 		var c: Dictionary = _cards[i]
 		var owned: int = game.owned[i]
@@ -660,7 +716,7 @@ func refresh_generators() -> void:
 		buy.disabled = game.cash < cost
 
 func refresh_crew() -> void:
-	for i in range(8):
+	for i in range(10):
 		var e: Dictionary = _mech_btns[i]
 		var btn: Button = e["btn"]
 		if game.mechanics[i]:
@@ -683,6 +739,7 @@ func refresh_shop() -> void:
 			btn.text = "BUY $%s" % BigNum.fmt(cost)
 			btn.disabled = game.cash < cost
 	_refresh_sponsors()
+	_refresh_powers()
 
 func _refresh_sponsors() -> void:
 	if not _sponsors_vb or not game:

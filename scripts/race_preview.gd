@@ -232,6 +232,12 @@ func _build_track(shape: int) -> void:
 			_build_angular()
 		4:  # IRWINDALE — twin oval (ellipse)
 			_build_ellipse(260.0, 105.0)
+		5:  # FUJI — D-shape (massive straight + banked sweeper)
+			_build_fuji()
+		6:  # SUZUKA EAST — flowing S-complex
+			_build_suzuka()
+		7:  # MONZA — high-speed rectangle with chicanes
+			_build_monza()
 	_perimeter = 0.0
 	for i in range(_track_pts.size()):
 		var a: Vector2 = _track_pts[i]
@@ -343,6 +349,72 @@ func _build_ellipse(rx: float, ry: float) -> void:
 		var a := float(i) / n * TAU
 		_track_pts.append(Vector2(_cx + rx * cos(a), _cy + ry * sin(a)))
 
+func _build_fuji() -> void:
+	# D-shape: very long straight + huge banked sweeper
+	var pts := PackedVector2Array()
+	var n := 24
+	# long top straight
+	for i in range(n + 1):
+		var t := float(i) / n
+		pts.append(Vector2(_cx - 290 + t * 580, _cy - 85))
+	# big right sweeper (r=85, 180°)
+	for i in range(1, 20):
+		var a := float(i) / 20 * PI
+		pts.append(Vector2(_cx + 290 + 85 * sin(a), _cy - 85 + 85 * (1 - cos(a))))
+	# bottom straight back
+	for i in range(1, n + 1):
+		var t := float(i) / n
+		pts.append(Vector2(_cx + 290 - t * 580, _cy + 85))
+	# tight left hairpin (r=40)
+	for i in range(1, 14):
+		var a := float(i) / 14 * PI
+		pts.append(Vector2(_cx - 290 - 40 * sin(a), _cy + 85 - 40 * (1 - cos(a))))
+	_track_pts = pts
+
+func _build_suzuka() -> void:
+	# flowing S-complex: alternating curves
+	var pts := PackedVector2Array()
+	var n := 60
+	for i in range(n + 1):
+		var t := float(i) / n * TAU
+		# S-curve modulation on an ellipse base
+		var rx := 240.0
+		var ry := 95.0
+		var wobble := 28.0 * sin(t * 3.0)
+		var x := _cx + (rx + wobble) * cos(t)
+		var y := _cy + ry * sin(t)
+		pts.append(Vector2(x, y))
+	_track_pts = pts
+
+func _build_monza() -> void:
+	# high-speed rectangle with 2 chicanes
+	var pts := PackedVector2Array([
+		Vector2(_cx - 250, _cy - 80),
+		Vector2(_cx + 250, _cy - 80),
+		Vector2(_cx + 270, _cy - 40),
+		Vector2(_cx + 270, _cy + 40),
+		Vector2(_cx + 250, _cy + 80),
+		# chicane 1 (right-left kink)
+		Vector2(_cx + 100, _cy + 80),
+		Vector2(_cx + 80, _cy + 60),
+		Vector2(_cx + 60, _cy + 80),
+		Vector2(_cx - 60, _cy + 80),
+		# chicane 2
+		Vector2(_cx - 80, _cy + 60),
+		Vector2(_cx - 100, _cy + 80),
+		Vector2(_cx - 250, _cy + 80),
+		Vector2(_cx - 270, _cy + 40),
+		Vector2(_cx - 270, _cy - 40),
+	])
+	var dense := PackedVector2Array()
+	var m := 10
+	for i in range(pts.size()):
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[(i + 1) % pts.size()]
+		for j in range(m):
+			dense.append(a.lerp(b, float(j) / m))
+	_track_pts = dense
+
 func _track_pos(t: float) -> Vector2:
 	if _track_pts.is_empty():
 		return Vector2(_cx, _cy)
@@ -377,10 +449,90 @@ func _track_shape_idx() -> int:
 	var theme := _track_theme()
 	return int(theme.get("shape", 0))
 
+func _draw_scenery(shape: int) -> void:
+	match shape:
+		0:  # Ebisu Nights — crowd dots + banners
+			for i in range(24):
+				var a := float(i) / 24 * TAU
+				var p := Vector2(_cx + 300 * cos(a), _cy + 140 * sin(a))
+				draw_circle(p, 3.0, Color(0.9, 0.85, 0.7, 0.5))
+			# banners
+			for i in range(4):
+				var bx := 120.0 + i * 160.0
+				draw_rect(Rect2(bx, 268, 100, 18), Color(0.85, 0.2, 0.25, 0.8))
+		1:  # Meihan Wall — concrete barriers on long straight
+			for i in range(8):
+				var x := 100.0 + i * 65.0
+				draw_rect(Rect2(x, 52, 55, 14), Color(0.55, 0.55, 0.58))
+				draw_rect(Rect2(x, 52, 55, 4), Color(0.9, 0.75, 0.2))
+		2:  # Nikko Tech — countryside trees
+			for i in range(16):
+				var tx := 40.0 + fposmod(i * 137.0, 640.0)
+				var ty := 30.0 + fposmod(i * 89.0, 240.0)
+				# skip if too close to track center
+				if Vector2(tx - _cx, ty - _cy).length() < 120.0:
+					continue
+				draw_circle(Vector2(tx, ty), 10.0, Color(0.15, 0.35, 0.18))
+				draw_circle(Vector2(tx - 3, ty - 3), 5.0, Color(0.20, 0.45, 0.22))
+		3:  # Long Beach — buildings + palms
+			for i in range(5):
+				var bx := 60.0 + i * 130.0
+				draw_rect(Rect2(bx, 20, 80, 50), Color(0.22, 0.24, 0.30))
+				draw_rect(Rect2(bx + 10, 30, 60, 8), Color(0.95, 0.85, 0.4, 0.6))
+			for i in range(6):
+				var px := 80.0 + i * 110.0
+				draw_line(Vector2(px, 250), Vector2(px, 230), Color(0.4, 0.3, 0.2), 4.0)
+				draw_circle(Vector2(px, 225), 12.0, Color(0.18, 0.45, 0.20))
+		4:  # Irwindale — night stadium spotlights + grandstand
+			for i in range(4):
+				var sx := 100.0 + i * 170.0
+				# spotlight cone
+				var cone := PackedVector2Array([
+					Vector2(sx, 10), Vector2(sx - 40, 120), Vector2(sx + 40, 120)
+				])
+				draw_colored_polygon(cone, Color(1, 1, 0.9, 0.08))
+				draw_circle(Vector2(sx, 10), 6.0, Color(1, 1, 0.9, 0.9))
+			# grandstand
+			draw_rect(Rect2(80, 270, 560, 24), Color(0.18, 0.18, 0.22))
+			for i in range(28):
+				var gx := 90.0 + i * 20.0
+				draw_circle(Vector2(gx, 282), 3.0, Color(0.9, 0.85, 0.7, 0.6))
+		5:  # Fuji — Mt. Fuji silhouette + speed vibe
+			# mountain
+			var mtn := PackedVector2Array([
+				Vector2(480, 60), Vector2(580, 10), Vector2(680, 60)
+			])
+			draw_colored_polygon(mtn, Color(0.25, 0.28, 0.35))
+			draw_circle(Vector2(580, 18), 12.0, Color(0.9, 0.9, 0.95, 0.8))
+			# speed lines on straight
+			for i in range(6):
+				var lx := 120.0 + i * 90.0
+				draw_line(Vector2(lx, 40), Vector2(lx + 40, 40), Color(1, 1, 1, 0.15), 2.0)
+		6:  # Suzuka East — flowing hills + Ferris wheel hint
+			for i in range(10):
+				var hx := 60.0 + i * 65.0
+				var hy := 25.0 + 10.0 * sin(i * 1.3)
+				draw_circle(Vector2(hx, hy), 18.0, Color(0.16, 0.32, 0.18))
+			# Ferris wheel
+			draw_arc(Vector2(620, 60), 28.0, 0, TAU, 24, Color(0.9, 0.5, 0.6, 0.5), 3.0)
+			for i in range(8):
+				var a := float(i) / 8 * TAU
+				draw_circle(Vector2(620, 60) + Vector2(cos(a), sin(a)) * 28.0, 4.0, Color(0.9, 0.5, 0.6, 0.6))
+		7:  # Monza — Italian flags + historic banking
+			for i in range(3):
+				var fx := 150.0 + i * 200.0
+				draw_rect(Rect2(fx, 15, 14, 30), Color(0.2, 0.6, 0.3))
+				draw_rect(Rect2(fx + 14, 15, 14, 30), Color(0.95, 0.95, 0.95))
+				draw_rect(Rect2(fx + 28, 15, 14, 30), Color(0.8, 0.2, 0.2))
+			# old banking hint
+			draw_arc(Vector2(_cx, _cy), 150.0, 0, TAU, 48, Color(0.6, 0.55, 0.5, 0.25), 8.0)
+
 func _draw() -> void:
 	var w := size.x
 	var theme := _track_theme()
 	draw_rect(Rect2(0, 0, w, size.y), theme["bg"])
+	# scenery behind track (per-track decorations)
+	_draw_scenery(_track_shape_idx())
 	# use precomputed track polyline
 	var pts := _track_pts
 	var n := pts.size()

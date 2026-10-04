@@ -12,6 +12,8 @@ const GENERATORS := [
 	{"name": "Drift Contract Board", "icon": "DRIFT", "cost": 400000.0, "payout": 150000.0, "time": 300.0, "unlock": 2000000.0},
 	{"name": "Detailing Studio", "icon": "SHINE", "cost": 2500000.0, "payout": 800000.0, "time": 600.0, "unlock": 12000000.0},
 	{"name": "Dyno Room", "icon": "DYNO", "cost": 15000000.0, "payout": 4000000.0, "time": 1200.0, "unlock": 80000000.0},
+	{"name": "Wind Tunnel", "icon": "AERO", "cost": 80000000.0, "payout": 25000000.0, "time": 2400.0, "unlock": 500000000.0},
+	{"name": "Engine Dyno Lab", "icon": "LAB", "cost": 400000000.0, "payout": 120000000.0, "time": 4800.0, "unlock": 2000000000.0},
 ]
 
 # Mechanics (managers): one per generator [name, cost]
@@ -24,6 +26,8 @@ const MECHANICS := [
 	{"name": "Ghost", "cost": 2500000.0},
 	{"name": "Vex", "cost": 15000000.0},
 	{"name": "Nova", "cost": 90000000.0},
+	{"name": "Aero", "cost": 500000000.0},
+	{"name": "Titan", "cost": 2500000000.0},
 ]
 
 # Sponsors: signable contracts {name, desc, bonus_type, bonus_target, bonus_mult, unlock_type, unlock_val}
@@ -83,9 +87,27 @@ const TRACKS := [
 		"curb_a": Color(0.92, 0.92, 0.92), "curb_b": Color(0.85, 0.20, 0.20),
 		"asphalt": Color(0.10, 0.11, 0.15), "asphalt_hi": Color(0.15, 0.16, 0.21),
 		"bg": Color(0.03, 0.03, 0.07), "glow": Color(0.5, 0.7, 1.0, 0.25)},
+	{"name": "Fuji Speedway", "cost": 500000000.0, "bonus": 1.40, "shape": 5,
+		"curb_a": Color(0.90, 0.90, 0.90), "curb_b": Color(0.20, 0.30, 0.80),
+		"asphalt": Color(0.13, 0.14, 0.16), "asphalt_hi": Color(0.19, 0.20, 0.23),
+		"bg": Color(0.06, 0.08, 0.12), "glow": Color(0.2, 0.3, 0.8, 0.15)},
+	{"name": "Suzuka East", "cost": 1000000000.0, "bonus": 1.50, "shape": 6,
+		"curb_a": Color(0.95, 0.95, 0.95), "curb_b": Color(0.15, 0.45, 0.25),
+		"asphalt": Color(0.14, 0.14, 0.15), "asphalt_hi": Color(0.20, 0.20, 0.22),
+		"bg": Color(0.05, 0.08, 0.06), "glow": Color(0, 0, 0, 0)},
+	{"name": "Monza", "cost": 2500000000.0, "bonus": 1.65, "shape": 7,
+		"curb_a": Color(0.85, 0.20, 0.20), "curb_b": Color(0.95, 0.95, 0.95),
+		"asphalt": Color(0.15, 0.13, 0.12), "asphalt_hi": Color(0.21, 0.19, 0.18),
+		"bg": Color(0.08, 0.07, 0.06), "glow": Color(0.85, 0.2, 0.2, 0.12)},
 ]
 
 # Global upgrades: [name, desc, cost, mult] — mult applies to all income
+const POWERS := [
+	{"name": "Nitro Boost", "desc": "2x income for 60s", "cooldown": 300.0, "duration": 60.0},
+	{"name": "Cash Injection", "desc": "Instant 10 min of income", "cooldown": 600.0, "duration": 0.0},
+	{"name": "HEAT Rush", "desc": "Instantly trigger HEAT", "cooldown": 240.0, "duration": 0.0},
+]
+
 const UPGRADES := [
 	{"name": "Better Wrenches", "desc": "+25% all income", "cost": 1000.0, "mult": 1.25},
 	{"name": "LED Shop Lights", "desc": "+25% all income", "cost": 8000.0, "mult": 1.25},
@@ -136,6 +158,12 @@ const CARS := [
 	{"name": "Godzilla R35", "cost": 300000000.0, "income": 4.0, "speed": 1.8, "style": 5.0, "move": "spin", "color": Color(0.90, 0.90, 0.92), "livery": "number", "sprite": "res://assets/cars/car_11.png", "rarity": "legendary"},
 	{"name": "Emperor EVO", "cost": 80000000.0, "income": 3.3, "speed": 1.65, "style": 4.3, "move": "wall", "color": Color(0.85, 0.75, 0.25), "livery": "stripe", "sprite": "res://assets/cars/car_18.png", "rarity": "legendary"},
 	{"name": "Titan GTR", "cost": 200000000.0, "income": 3.8, "speed": 1.75, "style": 4.8, "move": "spin", "color": Color(0.90, 0.35, 0.30), "livery": "number", "sprite": "res://assets/cars/car_19.png", "rarity": "legendary"},
+	# MYTHIC — endgame, massive bonuses
+	{"name": "Neon Phantom", "cost": 500000000.0, "income": 4.5, "speed": 1.9, "style": 6.0, "move": "spin", "color": Color(0.70, 0.20, 0.90), "livery": "number", "sprite": "res://assets/cars/car_12.png", "rarity": "mythic"},
+	{"name": "Solar Apex", "cost": 800000000.0, "income": 5.0, "speed": 2.0, "style": 6.5, "move": "wall", "color": Color(1.0, 0.60, 0.10), "livery": "stripe", "sprite": "res://assets/cars/car_13.png", "rarity": "mythic"},
+	{"name": "Void Runner", "cost": 1200000000.0, "income": 5.5, "speed": 2.1, "style": 7.0, "move": "spin", "color": Color(0.10, 0.10, 0.15), "livery": "number", "sprite": "res://assets/cars/car_14.png", "rarity": "mythic"},
+	{"name": "Chrome Storm", "cost": 1800000000.0, "income": 6.0, "speed": 2.2, "style": 7.5, "move": "wall", "color": Color(0.85, 0.90, 0.95), "livery": "stripe", "sprite": "res://assets/cars/car_15.png", "rarity": "mythic"},
+	{"name": "Eternal Drift", "cost": 2500000000.0, "income": 7.0, "speed": 2.3, "style": 8.0, "move": "spin", "color": Color(0.95, 0.30, 0.50), "livery": "number", "sprite": "res://assets/cars/car_16.png", "rarity": "mythic"},
 ]
 
 const RARITY_COLORS := {
@@ -143,6 +171,7 @@ const RARITY_COLORS := {
 	"rare": Color(0.65, 0.40, 0.95),
 	"exotic": Color(1.0, 0.75, 0.25),
 	"legendary": Color(1.0, 0.35, 0.45),
+	"mythic": Color(0.70, 0.20, 1.0),
 }
 
 # Achievements: {name, desc, kind, target, bonus}
@@ -164,6 +193,15 @@ const ACHIEVEMENTS := [
 	{"name": "Engine Room", "desc": "Own 3 Engine Build Rooms", "kind": "owned", "target": 3.0, "gen": 4, "bonus": 1.10},
 	{"name": "Drift Legend", "desc": "Own 2 Drift Contract Boards", "kind": "owned", "target": 2.0, "gen": 5, "bonus": 1.15},
 	{"name": "Franchised", "desc": "Franchise (prestige) once", "kind": "prestige", "target": 1.0, "gen": -1, "bonus": 1.15},
+	{"name": "Mythic Hunter", "desc": "Own a Mythic car", "kind": "mycar", "target": 1.0, "gen": -1, "bonus": 1.20},
+	{"name": "Track Master", "desc": "Own 5 tracks", "kind": "tracks", "target": 5.0, "gen": -1, "bonus": 1.20},
+	{"name": "Wind Tunnel Vision", "desc": "Own a Wind Tunnel", "kind": "owned", "target": 1.0, "gen": 8, "bonus": 1.15},
+	{"name": "Full Garage", "desc": "Own 10 bays of every type", "kind": "bays10", "target": 1.0, "gen": -1, "bonus": 1.25},
+	{"name": "Sponsor Magnet", "desc": "Have 3 sponsors active", "kind": "sponsors", "target": 3.0, "gen": -1, "bonus": 1.15},
+	{"name": "HEAT Wave", "desc": "Trigger HEAT 25 times", "kind": "heat", "target": 25.0, "gen": -1, "bonus": 1.15},
+	{"name": "Billionaire", "desc": "Earn $1B lifetime", "kind": "lifetime", "target": 1000000000.0, "gen": -1, "bonus": 1.30},
+	{"name": "Car Collector", "desc": "Own 20 cars", "kind": "cars", "target": 20.0, "gen": -1, "bonus": 1.25},
+	{"name": "Empire Builder", "desc": "Reach Motorsport Empire", "kind": "empire", "target": 1.0, "gen": -1, "bonus": 1.30},
 ]
 
 static func bulk_cost(base: float, owned: int, n: int) -> float:

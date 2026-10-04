@@ -6,16 +6,19 @@ const SAVE_PATH := "user://idle_garage.save"
 var cash := 0.0
 var lifetime := 0.0  # lifetime earnings (this prestige)
 var total_earned := 0.0  # all-time (for achievements)
-var owned := [1, 0, 0, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
-var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
-var mechanics := [false, false, false, false, false, false, false, false]
+var owned := [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
+var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
+var mechanics := [false, false, false, false, false, false, false, false, false, false]
 var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
 var prestige_count := 0
+var empire_points := 0  # second prestige: Motorsport Empire
+var empire_count := 0
+var heat_triggers := 0  # total HEAT activations (achievements)
 var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
-var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
-var cars_equipped := [0, 0, 0, 0, 0, 0, 0, 0]  # car index per generator bay
-var tracks_owned := [true, false, false, false, false]
+var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+var cars_equipped := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # car index per generator bay
+var tracks_owned := [true, false, false, false, false, false, false, false]
 var track_selected := 0  # index into Economy.TRACKS
 var style_meter := 0.0  # 0..100, fills from drifting
 var heat_timer := 0.0  # >0 = 2x HEAT bonus active
@@ -30,6 +33,8 @@ var missions_done := [false, false, false, false]
 var mission_prog := [0.0, 0.0, 0.0, 0.0]
 # sponsors (v10): up to 3 active
 var sponsors_active := [-1, -1, -1]
+var power_cooldowns := [0.0, 0.0, 0.0]  # per-power cooldown timers
+var nitro_timer := 0.0  # Nitro Boost active duration
 
 var _save_t := 0.0
 var _ui: CanvasLayer
@@ -121,6 +126,7 @@ func sponsor_unlocked(si: int) -> bool:
 						"rare": ri = 1
 						"exotic": ri = 2
 						"legendary": ri = 3
+						"mythic": ri = 4
 					if ri >= need:
 						return true
 			return false
@@ -192,9 +198,15 @@ func mission_progress(id: String, amount: float) -> void:
 func _process(dt: float) -> void:
 	# clamp dt (tab back after hours shouldn't simulate frame-by-frame)
 	dt = minf(dt, 1.0)
+	# power cooldowns + nitro timer
+	for i in range(power_cooldowns.size()):
+		if power_cooldowns[i] > 0.0:
+			power_cooldowns[i] = maxf(0.0, power_cooldowns[i] - dt)
+	if nitro_timer > 0.0:
+		nitro_timer = maxf(0.0, nitro_timer - dt)
 	var gmult := global_mult()
-	var pmult := prestige_mult()
-	for i in range(8):
+	var pmult := prestige_mult() * empire_mult() * nitro_mult()
+	for i in range(10):
 		if owned[i] <= 0:
 			continue
 		var g: Dictionary = Economy.GENERATORS[i]
@@ -208,7 +220,7 @@ func _process(dt: float) -> void:
 			_ui.float_text(i, pay)
 	# style meter fills from equipped cars drifting; full = 30s 2x HEAT
 	var style_rate := 0.0
-	for i in range(8):
+	for i in range(10):
 		if owned[i] > 0:
 			var car: Dictionary = Economy.CARS[cars_equipped[i]]
 			style_rate += float(car["style"])
@@ -216,6 +228,7 @@ func _process(dt: float) -> void:
 	if style_meter >= 100.0:
 		style_meter = 0.0
 		heat_timer = 30.0
+		heat_triggers += 1
 		_ui.heat_popup()
 		_ui.show_heat_tap()
 		mission_progress("heat", 1.0)
@@ -275,6 +288,41 @@ func check_achievements() -> void:
 				done = upgrades_bought.size() >= int(a["target"])
 			"prestige":
 				done = prestige_count >= int(a["target"])
+			"mycar":
+				for ci in range(cars_owned.size()):
+					if cars_owned[ci]:
+						var r: String = Economy.CARS[ci]["rarity"]
+						if r == "mythic":
+							done = true
+							break
+			"tracks":
+				var tc := 0
+				for t in tracks_owned:
+					if t:
+						tc += 1
+				done = tc >= int(a["target"])
+			"bays10":
+				done = true
+				for i in range(10):
+					if owned[i] < 10:
+						done = false
+						break
+			"sponsors":
+				var sc := 0
+				for s in sponsors_active:
+					if s >= 0:
+						sc += 1
+				done = sc >= int(a["target"])
+			"heat":
+				done = heat_triggers >= int(a["target"])
+			"cars":
+				var cc := 0
+				for c in cars_owned:
+					if c:
+						cc += 1
+				done = cc >= int(a["target"])
+			"empire":
+				done = empire_count >= int(a["target"])
 		if done:
 			achievements.append(ai)
 			if _ui:
@@ -306,7 +354,7 @@ func income_per_sec() -> float:
 	var hm := heat_mult()
 	var tm: float = Economy.TRACKS[track_selected]["bonus"]
 	var sm := sponsor_all_mult()
-	for i in range(8):
+	for i in range(10):
 		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm * tm * sm * sponsor_bay_mult(i)
 	return total
 
@@ -387,11 +435,65 @@ func do_prestige() -> void:
 	prestige_count += 1
 	cash = 0.0
 	lifetime = 0.0
-	owned = [1, 0, 0, 0, 0, 0]
-	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-	mechanics = [false, false, false, false, false, false]
+	owned = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	mechanics = [false, false, false, false, false, false, false, false, false, false]
 	upgrades_bought = []
 	# achievements persist through prestige (they're the keeper)
+	_ui.refresh_all()
+	check_achievements()
+	_save()
+
+func empire_mult() -> float:
+	return 1.0 + float(empire_points) * 0.25
+
+func nitro_mult() -> float:
+	return 2.0 if nitro_timer > 0.0 else 1.0
+
+func use_power(pi: int) -> void:
+	if pi < 0 or pi >= Economy.POWERS.size():
+		return
+	if power_cooldowns[pi] > 0.0:
+		return
+	var cd: float = Economy.POWERS[pi]["cooldown"]
+	power_cooldowns[pi] = cd
+	match pi:
+		0:  # Nitro Boost
+			nitro_timer = float(Economy.POWERS[pi]["duration"])
+		1:  # Cash Injection
+			var gain: float = income_per_sec() * 600.0
+			cash += gain
+			total_earned += gain
+		2:  # HEAT Rush
+			style_meter = 100.0
+	_save()
+
+func can_empire() -> bool:
+	# requires 25 stars (deep franchise progression)
+	return stars >= 25
+
+func do_empire() -> void:
+	# Motorsport Empire: second prestige, resets stars/tracks/cars for empire points
+	if not can_empire():
+		return
+	var gained := int(stars / 25)
+	empire_points += gained
+	empire_count += 1
+	stars = 0
+	prestige_count = 0
+	cash = 0.0
+	lifetime = 0.0
+	owned = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	mechanics = [false, false, false, false, false, false, false, false, false, false]
+	upgrades_bought = []
+	var new_cars := [true]
+	for i in range(24):
+		new_cars.append(false)
+	cars_owned = new_cars
+	tracks_owned = [true, false, false, false, false, false, false, false]
+	track_selected = 0
+	sponsors_active = [-1, -1, -1]
 	_ui.refresh_all()
 	check_achievements()
 	_save()
@@ -400,7 +502,7 @@ func _save() -> void:
 	var d := {
 		"cash": cash, "lifetime": lifetime, "total": total_earned,
 		"owned": owned, "mechanics": mechanics, "upgrades": upgrades_bought,
-		"stars": stars, "prestige_count": prestige_count,
+		"stars": stars, "prestige_count": prestige_count, "empire_points": empire_points, "empire_count": empire_count, "heat_triggers": heat_triggers,
 		"achievements": achievements,
 		"cars_owned": cars_owned, "cars_equipped": cars_equipped,
 		"tracks_owned": tracks_owned, "track_selected": track_selected,
@@ -434,18 +536,21 @@ func _load() -> void:
 	upgrades_bought = d.get("upgrades", [])
 	stars = int(d.get("stars", 0))
 	prestige_count = int(d.get("prestige_count", 0))
+	empire_points = int(d.get("empire_points", 0))
+	empire_count = int(d.get("empire_count", 0))
+	heat_triggers = int(d.get("heat_triggers", 0))
 	achievements = d.get("achievements", [])
 	var co: Array = d.get("cars_owned", [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false])
-	for i in range(20):
+	for i in range(25):
 		cars_owned[i] = bool(co[i]) if i < co.size() else (i == 0)
-	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0, 0, 0])
-	for i in range(8):
+	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+	for i in range(10):
 		cars_equipped[i] = int(ce[i]) if i < ce.size() else 0
-	var to: Array = d.get("tracks_owned", [true, false, false, false, false])
-	for i in range(5):
+	var to: Array = d.get("tracks_owned", [true, false, false, false, false, false, false, false])
+	for i in range(8):
 		tracks_owned[i] = bool(to[i]) if i < to.size() else (i == 0)
 	track_selected = int(d.get("track_selected", 0))
-	if track_selected < 0 or track_selected >= 5:
+	if track_selected < 0 or track_selected >= 8:
 		track_selected = 0
 	last_daily = String(d.get("last_daily", ""))
 	daily_streak = int(d.get("daily_streak", 0))
@@ -462,7 +567,7 @@ func _load() -> void:
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0
-	for i in range(8):
+	for i in range(10):
 		total_owned += owned[i]
 	if total_owned == 0:
 		owned[0] = 1
