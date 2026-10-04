@@ -39,6 +39,27 @@ const UPGRADES := [
 const COST_GROWTH := 1.15
 const MILESTONE_BONUS := 2.0  # x2 at 25/50/100/200 owned
 
+# Achievements: {name, desc, kind, target, bonus}
+# kind: "lifetime" (earn X lifetime), "owned" (own X of generator idx),
+#       "mechanics" (hire X), "upgrades" (buy X), "prestige" (prestige X times)
+const ACHIEVEMENTS := [
+	{"name": "First Dollar", "desc": "Earn $100 lifetime", "kind": "lifetime", "target": 100.0, "gen": -1, "bonus": 1.02},
+	{"name": "Grease Monkey", "desc": "Own 5 Oil Change Bays", "kind": "owned", "target": 5.0, "gen": 0, "bonus": 1.02},
+	{"name": "Getting Serious", "desc": "Earn $10K lifetime", "kind": "lifetime", "target": 10000.0, "gen": -1, "bonus": 1.03},
+	{"name": "Crew Up", "desc": "Hire 1 mechanic", "kind": "mechanics", "target": 1.0, "gen": -1, "bonus": 1.03},
+	{"name": "Tire Empire", "desc": "Own 5 Tire Shops", "kind": "owned", "target": 5.0, "gen": 1, "bonus": 1.03},
+	{"name": "Hundred Grand", "desc": "Earn $100K lifetime", "kind": "lifetime", "target": 100000.0, "gen": -1, "bonus": 1.05},
+	{"name": "Full Crew", "desc": "Hire 3 mechanics", "kind": "mechanics", "target": 3.0, "gen": -1, "bonus": 1.05},
+	{"name": "Paint It Up", "desc": "Own 5 Paint Booths", "kind": "owned", "target": 5.0, "gen": 2, "bonus": 1.05},
+	{"name": "Millionaire", "desc": "Earn $1M lifetime", "kind": "lifetime", "target": 1000000.0, "gen": -1, "bonus": 1.08},
+	{"name": "Upgrade Happy", "desc": "Buy 5 global upgrades", "kind": "upgrades", "target": 5.0, "gen": -1, "bonus": 1.08},
+	{"name": "Tuning Fork", "desc": "Own 5 Tuning Labs", "kind": "owned", "target": 5.0, "gen": 3, "bonus": 1.08},
+	{"name": "Ten Million", "desc": "Earn $10M lifetime", "kind": "lifetime", "target": 10000000.0, "gen": -1, "bonus": 1.10},
+	{"name": "Engine Room", "desc": "Own 3 Engine Build Rooms", "kind": "owned", "target": 3.0, "gen": 4, "bonus": 1.10},
+	{"name": "Drift Legend", "desc": "Own 2 Drift Contract Boards", "kind": "owned", "target": 2.0, "gen": 5, "bonus": 1.15},
+	{"name": "Franchised", "desc": "Franchise (prestige) once", "kind": "prestige", "target": 1.0, "gen": -1, "bonus": 1.15},
+]
+
 static func bulk_cost(base: float, owned: int, n: int) -> float:
 	# total cost to buy n more when you own `owned`
 	var total := 0.0

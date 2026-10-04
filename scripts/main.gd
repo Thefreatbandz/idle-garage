@@ -11,6 +11,8 @@ var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
 var mechanics := [false, false, false, false, false, false]
 var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
+var prestige_count := 0
+var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
 var bulk := 1  # 1, 10, 100, -1 (MAX)
 var start_time := 0
 
@@ -29,6 +31,11 @@ func _ready() -> void:
 	if not _ui_pending_offline.is_empty():
 		_ui.show_offline_popup(float(_ui_pending_offline[0]), float(_ui_pending_offline[1]))
 		_ui_pending_offline = []
+	# show any achievement popups earned while offline
+	for ai in _pending_ach_popups:
+		var a: Dictionary = Economy.ACHIEVEMENTS[ai]
+		_ui.achievement_popup(String(a["name"]), float(a["bonus"]))
+	_pending_ach_popups = []
 
 func _process(dt: float) -> void:
 	# clamp dt (tab back after hours shouldn't simulate frame-by-frame)
@@ -58,6 +65,7 @@ func earn(v: float) -> void:
 	cash += v
 	lifetime += v
 	total_earned += v
+	check_achievements()
 
 func spend(v: float) -> bool:
 	if cash < v:
@@ -69,7 +77,45 @@ func global_mult() -> float:
 	var m := 1.0
 	for u in upgrades_bought:
 		m *= float(Economy.UPGRADES[u]["mult"])
+	m *= achievement_mult()
 	return m
+
+func achievement_mult() -> float:
+	var m := 1.0
+	for a in achievements:
+		m *= float(Economy.ACHIEVEMENTS[a]["bonus"])
+	return m
+
+func check_achievements() -> void:
+	var mech_count := 0
+	for hired in mechanics:
+		if hired:
+			mech_count += 1
+	for ai in range(Economy.ACHIEVEMENTS.size()):
+		if ai in achievements:
+			continue
+		var a: Dictionary = Economy.ACHIEVEMENTS[ai]
+		var done := false
+		match String(a["kind"]):
+			"lifetime":
+				done = lifetime >= float(a["target"])
+			"owned":
+				done = owned[int(a["gen"])] >= int(a["target"])
+			"mechanics":
+				done = mech_count >= int(a["target"])
+			"upgrades":
+				done = upgrades_bought.size() >= int(a["target"])
+			"prestige":
+				done = prestige_count >= int(a["target"])
+		if done:
+			achievements.append(ai)
+			if _ui:
+				_ui.achievement_popup(String(a["name"]), float(a["bonus"]))
+			else:
+				_pending_ach_popups.append(ai)
+	_save()
+
+var _pending_ach_popups := []
 
 func prestige_mult() -> float:
 	return 1.0 + float(stars) * 0.10
@@ -96,6 +142,7 @@ func buy_generator(i: int) -> void:
 	if spend(cost):
 		owned[i] += n
 		_ui.refresh_all()
+		check_achievements()
 		_save()
 
 func buy_mechanic(i: int) -> void:
@@ -105,6 +152,7 @@ func buy_mechanic(i: int) -> void:
 	if spend(cost):
 		mechanics[i] = true
 		_ui.refresh_all()
+		check_achievements()
 		_save()
 
 func buy_upgrade(u: int) -> void:
@@ -114,6 +162,7 @@ func buy_upgrade(u: int) -> void:
 	if spend(cost):
 		upgrades_bought.append(u)
 		_ui.refresh_all()
+		check_achievements()
 		_save()
 
 func do_prestige() -> void:
@@ -122,20 +171,25 @@ func do_prestige() -> void:
 	if new_stars <= 0:
 		return
 	stars += new_stars
+	prestige_count += 1
 	cash = 0.0
 	lifetime = 0.0
 	owned = [1, 0, 0, 0, 0, 0]
 	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	mechanics = [false, false, false, false, false, false]
 	upgrades_bought = []
+	# achievements persist through prestige (they're the keeper)
 	_ui.refresh_all()
+	check_achievements()
 	_save()
 
 func _save() -> void:
 	var d := {
 		"cash": cash, "lifetime": lifetime, "total": total_earned,
 		"owned": owned, "mechanics": mechanics, "upgrades": upgrades_bought,
-		"stars": stars, "time": Time.get_unix_time_from_system(),
+		"stars": stars, "prestige_count": prestige_count,
+		"achievements": achievements,
+		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -161,6 +215,8 @@ func _load() -> void:
 		mechanics[i] = bool(m[i]) if i < m.size() else false
 	upgrades_bought = d.get("upgrades", [])
 	stars = int(d.get("stars", 0))
+	prestige_count = int(d.get("prestige_count", 0))
+	achievements = d.get("achievements", [])
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0

@@ -66,8 +66,8 @@ func build() -> void:
 	add_child(preview)
 	_preview = preview
 	# tabs
-	var tabs := ["BAYS", "CREW", "SHOP", "STATS"]
-	for ti in range(4):
+	var tabs := ["BAYS", "CREW", "SHOP", "AWARDS", "STATS"]
+	for ti in range(5):
 		var tb := _button(tabs[ti], Vector2(24 + ti * 170, 315), Vector2(160, 52), 26)
 		var idx := ti
 		tb.pressed.connect(func(): _set_tab(idx))
@@ -76,7 +76,7 @@ func build() -> void:
 	_bulk_btn = _button("x1", Vector2(1280 - 184, 315), Vector2(160, 52), 26)
 	_bulk_btn.pressed.connect(_cycle_bulk)
 	# panels
-	for ti in range(4):
+	for ti in range(5):
 		var p := ScrollContainer.new()
 		p.position = Vector2(16, 378)
 		p.size = Vector2(1248, 326)
@@ -86,6 +86,7 @@ func build() -> void:
 	_build_bays_panel()
 	_build_crew_panel()
 	_build_shop_panel()
+	_build_awards_panel()
 	_build_stats_panel()
 	# floating text layer
 	_float_layer = Control.new()
@@ -273,8 +274,40 @@ var _shop_btns := []
 var _preview: Control
 var _hint_label: Label
 
-func _build_stats_panel() -> void:
+func _build_awards_panel() -> void:
 	var p: ScrollContainer = _panels[3]
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 10)
+	p.add_child(vb)
+	_awards_vb = vb
+	_refresh_awards()
+
+var _awards_vb: VBoxContainer
+
+func _refresh_awards() -> void:
+	if not _awards_vb:
+		return
+	for c in _awards_vb.get_children():
+		c.queue_free()
+	var done := 0
+	for ai in range(Economy.ACHIEVEMENTS.size()):
+		var a: Dictionary = Economy.ACHIEVEMENTS[ai]
+		var unlocked: bool = ai in game.achievements
+		if unlocked:
+			done += 1
+		var pct := int(round((float(a["bonus"]) - 1.0) * 100.0))
+		var txt := "[X] %s — %s (+%d%%)" % [a["name"], a["desc"], pct] if unlocked else "[ ] %s — %s (+%d%%)" % [a["name"], a["desc"], pct]
+		var col := Color(1.0, 0.85, 0.30) if unlocked else Color(1, 1, 1, 0.45)
+		var l := _label(txt, 24, Vector2(0, 0), FONT_HUD, col)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_awards_vb.add_child(l)
+	var head := _label("AWARDS  %d/%d" % [done, Economy.ACHIEVEMENTS.size()], 28, Vector2(0, 0), FONT_DISPLAY, Color(1.0, 0.85, 0.30))
+	_awards_vb.add_child(head)
+	_awards_vb.move_child(head, 0)
+
+func _build_stats_panel() -> void:
+	var p: ScrollContainer = _panels[4]
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 12)
@@ -307,11 +340,13 @@ func _refresh_stats() -> void:
 
 func _set_tab(t: int) -> void:
 	_tab = t
-	for i in range(4):
+	for i in range(5):
 		_panels[i].visible = i == t
 		# highlight active tab
 		var tb: Button = _tab_btns[i]
 		tb.modulate = Color(1, 1, 1) if i == t else Color(1, 1, 1, 0.55)
+	if t == 3:
+		_refresh_awards()
 
 func _cycle_bulk() -> void:
 	if game.bulk == 1:
@@ -350,6 +385,7 @@ func refresh_all() -> void:
 	refresh_generators()
 	refresh_crew()
 	refresh_shop()
+	_refresh_awards()
 	_refresh_stats()
 	_update_hint()
 
@@ -417,6 +453,38 @@ func _update_hint() -> void:
 		_hint_label.text = "Check the SHOP tab — global upgrades boost ALL income."
 	else:
 		_hint_label.text = ""
+
+func achievement_popup(ach_name: String, bonus: float) -> void:
+	# toast at top of screen
+	var toast := PanelContainer.new()
+	toast.custom_minimum_size = Vector2(600, 90)
+	toast.position = Vector2(340, 100)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.08, 0.97)
+	sb.border_color = Color(1.0, 0.85, 0.30, 0.95)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	toast.add_theme_stylebox_override("panel", sb)
+	var vb := VBoxContainer.new()
+	toast.add_child(vb)
+	var t := _label("ACHIEVEMENT UNLOCKED", 20, Vector2(0, 0), FONT_HUD, Color(1.0, 0.85, 0.30))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.custom_minimum_size = Vector2(560, 28)
+	vb.add_child(t)
+	var pct := int(round((bonus - 1.0) * 100.0))
+	var n := _label("%s  (+%d%% income)" % [ach_name, pct], 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	n.custom_minimum_size = Vector2(560, 36)
+	vb.add_child(n)
+	add_child(toast)
+	# auto-dismiss after 3s
+	var tw := create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_callback(toast.queue_free)
 
 func show_offline_popup(gained: float, away_sec: float) -> void:
 	# dim background
