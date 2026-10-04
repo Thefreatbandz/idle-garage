@@ -655,6 +655,42 @@ func _refresh_cars() -> void:
 			var dix := di
 			dbtn.pressed.connect(func(): game.buy_decal(dix))
 			dbtn.disabled = game.cash < float(dec["cost"])
+	# CAR MEET — weekly judged showcase
+	game.meet_check_reset()
+	_cars_vb.add_child(_label("— CAR MEET —", 24, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.8)))
+	var meet_name: String = Economy.MEET_NAMES[hash(game.meet_week) % Economy.MEET_NAMES.size()]
+	_cars_vb.add_child(_label("%s (weekly)" % meet_name, 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7)))
+	if game.meet_entered < 0:
+		_cars_vb.add_child(_label("Enter your best car:", 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.85)))
+		for ci in range(Economy.CARS.size()):
+			if not game.cars_owned[ci]:
+				continue
+			var car: Dictionary = Economy.CARS[ci]
+			var mhb := HBoxContainer.new()
+			mhb.add_theme_constant_override("separation", 10)
+			_cars_vb.add_child(mhb)
+			var ml := _label("%s (score %d)" % [car["name"], int(game.meet_score(ci))], 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+			ml.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			mhb.add_child(ml)
+			var mbtn := _button("ENTER", Vector2(0, 0), Vector2(140, 52), 22)
+			remove_child(mbtn)
+			mhb.add_child(mbtn)
+			var mcx := ci
+			mbtn.pressed.connect(func(): game.meet_enter(mcx))
+	else:
+		# results
+		var rank: int = game.meet_player_rank()
+		_cars_vb.add_child(_label("Your rank: #%d" % rank, 22, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6) if rank <= 3 else Color(1, 1, 1)))
+		for r in game.meet_results:
+			var rcol := Color(0.5, 1.0, 0.6) if bool(r.get("you", false)) else Color(1, 1, 1, 0.75)
+			_cars_vb.add_child(_label("%s — %d pts" % [r["name"], int(r["score"])], 20, Vector2(0, 0), FONT_HUD, rcol))
+		if not game.meet_claimed and rank >= 1 and rank <= 3:
+			var cbtn := _button("CLAIM $%s" % BigNum.fmt(Economy.MEET_PRIZES[rank - 1]), Vector2(0, 0), Vector2(300, 60), 24)
+			remove_child(cbtn)
+			_cars_vb.add_child(cbtn)
+			cbtn.pressed.connect(func(): game.meet_claim())
+		elif game.meet_claimed:
+			_cars_vb.add_child(_label("Prize claimed!", 20, Vector2(0, 0), FONT_HUD, Color(0.5, 1.0, 0.6)))
 
 func _build_awards_panel() -> void:
 	var p: ScrollContainer = _panels[4]

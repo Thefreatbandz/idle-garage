@@ -21,6 +21,11 @@ var car_parts := []  # per car: [engine_lv, tires_lv, aero_lv]
 var car_decals := []  # per car: decal style index (-1 = none)
 var car_decal_colors := []  # per car: Color
 var decals_owned := []  # decal shop ownership
+var meet_week := ""  # current meet week id (YYYY-WW)
+var meet_entered := -1  # car index entered in current meet
+var meet_results := []  # [{name, score}] sorted
+var meet_claimed := false
+var meet_wins := 0
 var cars_equipped := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # car index per generator bay
 var tracks_owned := [true, false, false, false, false, false, false, false]
 var track_selected := 0  # index into Economy.TRACKS
@@ -114,6 +119,83 @@ func set_decal_color(car_idx: int, col: Color) -> void:
 		return
 	car_decal_colors[car_idx] = col
 	_save()
+
+# CAR MEET — weekly judged showcase
+func meet_week_id() -> String:
+	var t := Time.get_datetime_dict_from_system()
+	var week := int(t["day"]) / 7 + 1
+	return "%d-W%d" % [t["year"], week]
+
+func meet_check_reset() -> void:
+	var wid := meet_week_id()
+	if meet_week != wid:
+		meet_week = wid
+		meet_entered = -1
+		meet_results = []
+		meet_claimed = false
+		_save()
+
+func meet_score(car_idx: int) -> float:
+	# style + parts + decal + rarity
+	var car: Dictionary = Economy.CARS[car_idx]
+	var score := float(car["style"]) * 10.0
+	score *= part_mult(car_idx, 2)  # aero
+	# parts bonus
+	var total_lv := 0
+	for j in range(3):
+		total_lv += car_parts[car_idx][j]
+	score += float(total_lv) * 5.0
+	# decal bonus
+	if car_decals[car_idx] >= 0:
+		score += 25.0
+	# rarity bonus
+	match String(car["rarity"]):
+		"rare": score += 10.0
+		"exotic": score += 25.0
+		"legendary": score += 50.0
+		"mythic": score += 100.0
+	return score
+
+func meet_enter(car_idx: int) -> void:
+	if meet_entered >= 0 or not cars_owned[car_idx]:
+		return
+	meet_entered = car_idx
+	# generate 7 AI competitors scaled to player
+	var player_score := meet_score(car_idx)
+	meet_results = [{"name": "YOU", "score": player_score, "you": true}]
+	var names := ["Ghost", "Vex", "Nova", "Rogue", "Blaze", "Onyx", "Jinx"]
+	for i in range(7):
+		# AI scores: 60%-130% of player score (beatable but challenging)
+		var ai_score := player_score * randf_range(0.6, 1.3)
+		meet_results.append({"name": names[i], "score": ai_score, "you": false})
+	meet_results.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	_save()
+	_ui.refresh_all()
+
+func meet_player_rank() -> int:
+	for i in range(meet_results.size()):
+		if bool(meet_results[i].get("you", false)):
+			return i + 1
+	return -1
+
+func meet_claim() -> void:
+	if meet_entered < 0 or meet_claimed or meet_results.is_empty():
+		return
+	var rank := meet_player_rank()
+	if rank >= 1 and rank <= 3:
+		var prize: float = Economy.MEET_PRIZES[rank - 1]
+		cash += prize
+		total_earned += prize
+		if rank == 1:
+			meet_wins += 1
+			# champion decals
+			if decals_owned.size() >= 8:
+				decals_owned[6] = true  # Champion Laurel
+				if meet_wins >= 3:
+					decals_owned[7] = true  # Neon Underglow
+	meet_claimed = true
+	_save()
+	_ui.refresh_all()
 
 func _ready() -> void:
 	start_time = Time.get_unix_time_from_system()
@@ -591,6 +673,9 @@ func _save() -> void:
 		"sponsors_active": sponsors_active,
 		"car_parts": car_parts, "car_decals": car_decals,
 		"car_decal_colors": car_decal_colors, "decals_owned": decals_owned,
+		"meet_week": meet_week, "meet_entered": meet_entered,
+		"meet_results": meet_results, "meet_claimed": meet_claimed,
+		"meet_wins": meet_wins,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -670,6 +755,11 @@ func _load() -> void:
 	if cdc.size() == 25:
 		for i in range(25):
 			car_decal_colors[i] = cdc[i]
+	meet_week = String(d.get("meet_week", ""))
+	meet_entered = int(d.get("meet_entered", -1))
+	meet_results = d.get("meet_results", [])
+	meet_claimed = bool(d.get("meet_claimed", false))
+	meet_wins = int(d.get("meet_wins", 0))
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0

@@ -728,6 +728,19 @@ func _draw_decal(bp: Vector2, yaw: float, decal_idx: int, col: Color) -> void:
 				var rel := pt - bp
 				rp2.append(bp + rel.rotated(yaw + PI * 0.5))
 			draw_colored_polygon(rp2, col)
+		"laurel":
+			# champion laurel wreath (two arcs)
+			draw_arc(bp, 20.0, PI * 0.3, PI * 0.9, 12, col, 4.0)
+			draw_arc(bp, 20.0, PI * 1.1, PI * 1.7, 12, col, 4.0)
+			for i in range(6):
+				var a1 := PI * (0.35 + float(i) * 0.1)
+				var a2 := PI * (1.15 + float(i) * 0.1)
+				draw_circle(bp + Vector2(cos(a1), sin(a1)) * 20.0, 3.0, col)
+				draw_circle(bp + Vector2(cos(a2), sin(a2)) * 20.0, 3.0, col)
+		"neon":
+			# neon underglow
+			var pulse := 0.5 + 0.3 * sin(_time * 5.0)
+			draw_arc(bp, 30.0, 0, TAU, 20, Color(col.r, col.g, col.b, pulse), 4.0)
 
 func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String, car_idx: int, decal_idx: int = -1, decal_col: Color = Color(1, 1, 1)) -> void:
 	var yaw := angle

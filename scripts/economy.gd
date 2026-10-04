@@ -148,7 +148,14 @@ const DECALS := [
 	{"name": "Lightning", "cost": 250000.0, "style": "lightning"},
 	{"name": "Checker", "cost": 500000.0, "style": "checker"},
 	{"name": "Crown", "cost": 1000000.0, "style": "crown"},
+	# meet-exclusive (not buyable)
+	{"name": "Champion Laurel", "cost": -1.0, "style": "laurel"},
+	{"name": "Neon Underglow", "cost": -1.0, "style": "neon"},
 ]
+
+# Car Meet: weekly judged showcase
+const MEET_NAMES := ["Neon Nights", "Sunset Showdown", "Midnight Masters", "Apex Gathering"]
+const MEET_PRIZES := [500000.0, 250000.0, 100000.0]  # 1st/2nd/3rd
 
 #         "legendary" (+income/speed/style, unique moves)
 # livery: "plain", "stripe", "number", "twotone"
