@@ -498,8 +498,11 @@ func do_empire() -> void:
 	check_achievements()
 	_save()
 
+const SAVE_VERSION := 12  # bump to wipe saves (fresh start on major versions)
+
 func _save() -> void:
 	var d := {
+		"v": SAVE_VERSION,
 		"cash": cash, "lifetime": lifetime, "total": total_earned,
 		"owned": owned, "mechanics": mechanics, "upgrades": upgrades_bought,
 		"stars": stars, "prestige_count": prestige_count, "empire_points": empire_points, "empire_count": empire_count, "heat_triggers": heat_triggers,
@@ -523,6 +526,11 @@ func _load() -> void:
 	if not f:
 		return
 	var d: Dictionary = f.get_var()
+	# version check — old saves wiped on major versions (fresh start)
+	if int(d.get("v", 0)) < SAVE_VERSION:
+		f.close()
+		DirAccess.remove_absolute(SAVE_PATH)
+		return
 	f.close()
 	cash = float(d.get("cash", 0.0))
 	lifetime = float(d.get("lifetime", 0.0))

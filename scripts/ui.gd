@@ -329,49 +329,62 @@ var _powers_vb: VBoxContainer
 var _preview: Control
 var _hint_label: Label
 var _missions_vb: VBoxContainer
+var _power_btns := []  # cached (rebuilding every 0.5s froze scroll)
 
 func _refresh_powers() -> void:
 	if not _powers_vb or not game:
 		return
-	for c in _powers_vb.get_children():
-		c.queue_free()
-	for pi in range(Economy.POWERS.size()):
-		var p: Dictionary = Economy.POWERS[pi]
+	# build once, update states after (no rebuild = no scroll freeze)
+	if _power_btns.is_empty():
+		for pi in range(Economy.POWERS.size()):
+			var p: Dictionary = Economy.POWERS[pi]
+			var card := PanelContainer.new()
+			card.custom_minimum_size = Vector2(672, 96)
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
+			sb.border_color = Color(1.0, 0.6, 0.25, 0.55)
+			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(14)
+			sb.content_margin_left = 14
+			sb.content_margin_right = 14
+			sb.content_margin_top = 10
+			sb.content_margin_bottom = 10
+			card.add_theme_stylebox_override("panel", sb)
+			_powers_vb.add_child(card)
+			var vb := VBoxContainer.new()
+			vb.add_theme_constant_override("separation", 4)
+			card.add_child(vb)
+			var nm := _label(String(p["name"]), 22, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
+			vb.add_child(nm)
+			var ds := _label(String(p["desc"]), 18, Vector2(0, 0), FONT_HUD, Color(0.75, 0.75, 0.78))
+			vb.add_child(ds)
+			var btn := _button("USE", Vector2(0, 0), Vector2(96, 72), 22)
+			remove_child(btn)
+			card.add_child(btn)
+			btn.position = Vector2(560, 12)
+			var idx := pi
+			btn.pressed.connect(func(): game.use_power(idx))
+			_power_btns.append(btn)
+	for pi in range(_power_btns.size()):
+		var btn: Button = _power_btns[pi]
 		var cd: float = game.power_cooldowns[pi]
-		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(672, 96)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.13, 0.11, 0.16, 0.97)
-		sb.border_color = Color(1.0, 0.6, 0.25, 0.55)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(14)
-		sb.content_margin_left = 14
-		sb.content_margin_right = 14
-		sb.content_margin_top = 10
-		sb.content_margin_bottom = 10
-		card.add_theme_stylebox_override("panel", sb)
-		_powers_vb.add_child(card)
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", 4)
-		card.add_child(vb)
-		var nm := _label(String(p["name"]), 22, Vector2(0, 0), FONT_HUD, Color(1.0, 0.6, 0.25))
-		vb.add_child(nm)
-		var ds := _label(String(p["desc"]), 18, Vector2(0, 0), FONT_HUD, Color(0.75, 0.75, 0.78))
-		vb.add_child(ds)
-		var btn := _button("USE", Vector2(0, 0), Vector2(96, 72), 22)
-		remove_child(btn)
-		card.add_child(btn)
-		btn.position = Vector2(560, 12)
 		if cd > 0.0:
 			btn.disabled = true
 			btn.text = "%ds" % int(cd)
-		btn.pressed.connect(func(): game.use_power(pi); _refresh_powers())
+		else:
+			btn.disabled = false
+			btn.text = "USE"
+
+var _mission_labels := []  # cached (rebuilding every 0.5s froze scroll)
 
 func _refresh_missions() -> void:
 	if not _missions_vb or not game:
 		return
-	for c in _missions_vb.get_children():
-		c.queue_free()
+	if _mission_labels.is_empty():
+		for i in range(Economy.MISSIONS.size()):
+			var l := _label("", 20, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.75))
+			_missions_vb.add_child(l)
+			_mission_labels.append(l)
 	for i in range(Economy.MISSIONS.size()):
 		var m: Dictionary = Economy.MISSIONS[i]
 		var done: bool = game.missions_done[i]
@@ -379,9 +392,9 @@ func _refresh_missions() -> void:
 		var target: float = m["target"]
 		var label_text := String(m["label"]) % [BigNum.fmt(target) if String(m["id"]) == "earn" else int(target)]
 		var status := "DONE" if done else "%s / %s" % [BigNum.fmt(prog), BigNum.fmt(target)]
-		var col := Color(0.5, 1.0, 0.6, 0.9) if done else Color(1, 1, 1, 0.75)
-		var l := _label("%s  [%s]" % [label_text, status], 20, Vector2(0, 0), FONT_HUD, col)
-		_missions_vb.add_child(l)
+		var l: Label = _mission_labels[i]
+		l.text = "%s  [%s]" % [label_text, status]
+		l.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6, 0.9) if done else Color(1, 1, 1, 0.75))
 
 func _build_cars_panel() -> void:
 	var p: ScrollContainer = _panels[3]

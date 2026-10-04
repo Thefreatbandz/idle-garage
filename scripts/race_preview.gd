@@ -18,11 +18,12 @@ const BAY_H := 84.0
 var _cars := []  # per generator: {mode, track_t, speed, color, bay_t, service_t, pos}
 var _smokes := []
 var _skids := []  # persistent skid marks: {pos, angle, life}
+var _trails := []  # drift trails: {pos, life, max, col}
 var _coins := []  # {pos, life}
 var _floats := []  # {pos, life, max, text}
 var _time := 0.0
 
-const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO"]
+const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO", "AERO", "LAB"]
 
 # car modes
 const M_TRACK := 0
@@ -41,7 +42,7 @@ func _ready() -> void:
 			_car_tex.append(load(path))
 		else:
 			_car_tex.append(null)
-	for i in range(8):
+	for i in range(10):
 		_cars.append({
 			"mode": M_TRACK, "track_t": randf(),
 			"speed": 0.10 + randf() * 0.04,
@@ -95,7 +96,7 @@ func _process(dt: float) -> void:
 		var want_shape: int = _track_shape_idx()
 		if want_shape != _track_shape:
 			_build_track(want_shape)
-	for i in range(8):
+	for i in range(10):
 		var c: Dictionary = _cars[i]
 		var owned := int(game.owned[i]) if game else 0
 		if owned <= 0:
@@ -175,6 +176,9 @@ func _process(dt: float) -> void:
 	for sk in _skids:
 		sk["life"] = float(sk["life"]) - dt
 	_skids = _skids.filter(func(sk): return float(sk["life"]) > 0.0)
+	for tr in _trails:
+		tr["life"] = float(tr["life"]) - dt
+	_trails = _trails.filter(func(tr): return float(tr["life"]) > 0.0)
 	for cn in _coins:
 		cn["life"] = float(cn["life"]) - dt
 		cn["pos"] = (cn["pos"] as Vector2) + Vector2(randf_range(-20, 20), -40) * dt
@@ -195,6 +199,12 @@ func _spawn_skid(p: Vector2, angle: float) -> void:
 	if _skids.size() > 120:
 		_skids = _skids.slice(_skids.size() - 120)
 
+func _spawn_drift_trail(p: Vector2, col: Color) -> void:
+	# colored drift trail (neon-noir style)
+	_trails.append({"pos": p, "life": 1.2, "max": 1.2, "col": col})
+	if _trails.size() > 80:
+		_trails = _trails.slice(_trails.size() - 80)
+
 func _spawn_spark(p: Vector2) -> void:
 	_smokes.append({"pos": p + Vector2(randf_range(-14, 14), randf_range(-8, 8)), "life": 0.4, "max": 0.4, "size": randf_range(3, 5)})
 
@@ -210,7 +220,7 @@ func _spawn_float(p: Vector2, text: String) -> void:
 func _owned_count() -> int:
 	var n := 0
 	if game:
-		for i in range(8):
+		for i in range(10):
 			if int(game.owned[i]) > 0:
 				n += 1
 	return n
@@ -451,80 +461,82 @@ func _track_shape_idx() -> int:
 
 func _draw_scenery(shape: int) -> void:
 	match shape:
-		0:  # Ebisu Nights — crowd dots + banners
+		0:  # Ebisu Nights — bouncing crowd + waving banners
 			for i in range(24):
 				var a := float(i) / 24 * TAU
-				var p := Vector2(_cx + 300 * cos(a), _cy + 140 * sin(a))
+				var bounce := sin(_time * 8.0 + float(i) * 0.8) * 3.0
+				var p := Vector2(_cx + 300 * cos(a), _cy + 140 * sin(a) + bounce)
 				draw_circle(p, 3.0, Color(0.9, 0.85, 0.7, 0.5))
-			# banners
+			# waving banners
 			for i in range(4):
 				var bx := 120.0 + i * 160.0
-				draw_rect(Rect2(bx, 268, 100, 18), Color(0.85, 0.2, 0.25, 0.8))
-		1:  # Meihan Wall — concrete barriers on long straight
-			for i in range(8):
+				var wave := sin(_time * 5.0 + float(i) * 1.2) * 4.0
+				draw_rect(Rect2(bx, 268 + wave, 100, 18), Color(0.85, 0.2, 0.25, 0.8))
+		1:  # Meihan Wall — concrete barriers (static, solid)
+			for i in range(10):
 				var x := 100.0 + i * 65.0
 				draw_rect(Rect2(x, 52, 55, 14), Color(0.55, 0.55, 0.58))
 				draw_rect(Rect2(x, 52, 55, 4), Color(0.9, 0.75, 0.2))
-		2:  # Nikko Tech — countryside trees
+		2:  # Nikko Tech — swaying trees
 			for i in range(16):
 				var tx := 40.0 + fposmod(i * 137.0, 640.0)
 				var ty := 30.0 + fposmod(i * 89.0, 240.0)
-				# skip if too close to track center
 				if Vector2(tx - _cx, ty - _cy).length() < 120.0:
 					continue
-				draw_circle(Vector2(tx, ty), 10.0, Color(0.15, 0.35, 0.18))
-				draw_circle(Vector2(tx - 3, ty - 3), 5.0, Color(0.20, 0.45, 0.22))
-		3:  # Long Beach — buildings + palms
+				var sway := sin(_time * 2.5 + float(i)) * 3.0
+				draw_circle(Vector2(tx + sway, ty), 10.0, Color(0.15, 0.35, 0.18))
+				draw_circle(Vector2(tx - 3 + sway, ty - 3), 5.0, Color(0.20, 0.45, 0.22))
+		3:  # Long Beach — buildings with twinkling windows + swaying palms
 			for i in range(5):
 				var bx := 60.0 + i * 130.0
 				draw_rect(Rect2(bx, 20, 80, 50), Color(0.22, 0.24, 0.30))
-				draw_rect(Rect2(bx + 10, 30, 60, 8), Color(0.95, 0.85, 0.4, 0.6))
+				var twinkle := 0.4 + 0.3 * sin(_time * 3.0 + float(i) * 2.0)
+				draw_rect(Rect2(bx + 10, 30, 60, 8), Color(0.95, 0.85, 0.4, twinkle))
 			for i in range(6):
 				var px := 80.0 + i * 110.0
-				draw_line(Vector2(px, 250), Vector2(px, 230), Color(0.4, 0.3, 0.2), 4.0)
-				draw_circle(Vector2(px, 225), 12.0, Color(0.18, 0.45, 0.20))
-		4:  # Irwindale — night stadium spotlights + grandstand
+				var sway := sin(_time * 2.0 + float(i) * 1.5) * 4.0
+				draw_line(Vector2(px, 250), Vector2(px + sway, 230), Color(0.4, 0.3, 0.2), 4.0)
+				draw_circle(Vector2(px + sway, 225), 12.0, Color(0.18, 0.45, 0.20))
+		4:  # Irwindale — sweeping spotlights + bouncing crowd
 			for i in range(4):
 				var sx := 100.0 + i * 170.0
-				# spotlight cone
+				var sweep := sin(_time * 1.5 + float(i) * 1.8) * 50.0
 				var cone := PackedVector2Array([
-					Vector2(sx, 10), Vector2(sx - 40, 120), Vector2(sx + 40, 120)
+					Vector2(sx, 10), Vector2(sx - 40 + sweep, 120), Vector2(sx + 40 + sweep, 120)
 				])
 				draw_colored_polygon(cone, Color(1, 1, 0.9, 0.08))
 				draw_circle(Vector2(sx, 10), 6.0, Color(1, 1, 0.9, 0.9))
-			# grandstand
 			draw_rect(Rect2(80, 270, 560, 24), Color(0.18, 0.18, 0.22))
 			for i in range(28):
 				var gx := 90.0 + i * 20.0
-				draw_circle(Vector2(gx, 282), 3.0, Color(0.9, 0.85, 0.7, 0.6))
-		5:  # Fuji — Mt. Fuji silhouette + speed vibe
-			# mountain
+				var bounce := sin(_time * 7.0 + float(i) * 0.9) * 2.5
+				draw_circle(Vector2(gx, 282 + bounce), 3.0, Color(0.9, 0.85, 0.7, 0.6))
+		5:  # Fuji — Mt. Fuji + animated speed lines
 			var mtn := PackedVector2Array([
 				Vector2(480, 60), Vector2(580, 10), Vector2(680, 60)
 			])
 			draw_colored_polygon(mtn, Color(0.25, 0.28, 0.35))
 			draw_circle(Vector2(580, 18), 12.0, Color(0.9, 0.9, 0.95, 0.8))
-			# speed lines on straight
 			for i in range(6):
-				var lx := 120.0 + i * 90.0
+				var lx := 120.0 + i * 90.0 + fposmod(_time * 120.0, 90.0)
 				draw_line(Vector2(lx, 40), Vector2(lx + 40, 40), Color(1, 1, 1, 0.15), 2.0)
-		6:  # Suzuka East — flowing hills + Ferris wheel hint
+		6:  # Suzuka East — swaying hills + spinning Ferris wheel
 			for i in range(10):
 				var hx := 60.0 + i * 65.0
 				var hy := 25.0 + 10.0 * sin(i * 1.3)
 				draw_circle(Vector2(hx, hy), 18.0, Color(0.16, 0.32, 0.18))
-			# Ferris wheel
+			var spin := _time * 0.8
 			draw_arc(Vector2(620, 60), 28.0, 0, TAU, 24, Color(0.9, 0.5, 0.6, 0.5), 3.0)
-			for i in range(8):
-				var a := float(i) / 8 * TAU
+			for i in range(10):
+				var a := float(i) / 8 * TAU + spin
 				draw_circle(Vector2(620, 60) + Vector2(cos(a), sin(a)) * 28.0, 4.0, Color(0.9, 0.5, 0.6, 0.6))
-		7:  # Monza — Italian flags + historic banking
+		7:  # Monza — waving Italian flags
 			for i in range(3):
 				var fx := 150.0 + i * 200.0
-				draw_rect(Rect2(fx, 15, 14, 30), Color(0.2, 0.6, 0.3))
-				draw_rect(Rect2(fx + 14, 15, 14, 30), Color(0.95, 0.95, 0.95))
-				draw_rect(Rect2(fx + 28, 15, 14, 30), Color(0.8, 0.2, 0.2))
-			# old banking hint
+				var wave := sin(_time * 6.0 + float(i) * 2.0) * 3.0
+				draw_rect(Rect2(fx, 15 + wave, 14, 30), Color(0.2, 0.6, 0.3))
+				draw_rect(Rect2(fx + 14, 15 + wave, 14, 30), Color(0.95, 0.95, 0.95))
+				draw_rect(Rect2(fx + 28, 15 + wave, 14, 30), Color(0.8, 0.2, 0.2))
 			draw_arc(Vector2(_cx, _cy), 150.0, 0, TAU, 48, Color(0.6, 0.55, 0.5, 0.25), 8.0)
 
 func _draw() -> void:
@@ -543,24 +555,31 @@ func _draw() -> void:
 	for i in range(n):
 		inner.append(pts[i] * 0.80 + Vector2(_cx * 0.20, _cy * 0.20))
 	draw_colored_polygon(inner, Color(0.12, 0.28, 0.14))
-	# track: curb, then asphalt with theme colors
+	# track: layered halo (outer glow for depth), curb, then asphalt
 	var step := maxi(1, n / 36)
+	var loop := pts + PackedVector2Array([pts[0]])
+	# outer halo — soft glow under everything
+	draw_polyline(loop, Color(0, 0, 0, 0.5), 58.0, true)
+	# curb with rounded alternating segments
 	for i in range(0, n, step * 2):
 		var seg := PackedVector2Array([pts[i], pts[(i + step) % n], pts[(i + step * 2) % n]])
 		var curb_col: Color = theme["curb_a"] if (i / (step * 2)) % 2 == 0 else theme["curb_b"]
-		draw_polyline(seg, curb_col, 46.0, true)
-	# close the loop for asphalt
-	var loop := pts + PackedVector2Array([pts[0]])
-	draw_polyline(loop, theme["asphalt"], 40.0, true)
-	draw_polyline(loop, theme["asphalt_hi"], 32.0, true)
+		draw_polyline(seg, curb_col, 48.0, true)
+	# asphalt
+	draw_polyline(loop, theme["asphalt"], 42.0, true)
+	draw_polyline(loop, theme["asphalt_hi"], 34.0, true)
+	# neon edge line (thin bright line on track edge)
+	var edge_col: Color = theme["curb_a"]
+	draw_polyline(loop, Color(edge_col.r, edge_col.g, edge_col.b, 0.35), 44.0, true)
 	# theme glow under track
 	if (theme["glow"] as Color).a > 0:
-		draw_polyline(pts, theme["glow"], 52.0, true)
-	# checkered start/finish line
+		draw_polyline(pts, theme["glow"], 54.0, true)
+	# checkered start/finish line (animated pulse)
 	var sf := _track_pos(0.0)
+	var sf_pulse := 0.85 + 0.15 * sin(_time * 4.0)
 	for k in range(4):
-		var ck := Color(1, 1, 1) if k % 2 == 0 else Color(0.1, 0.1, 0.1)
-		draw_rect(Rect2(sf + Vector2(-3, -16 + k * 8), Vector2(6, 8)), ck)
+		var ck := Color(1, 1, 1, sf_pulse) if k % 2 == 0 else Color(0.1, 0.1, 0.1, sf_pulse)
+		draw_rect(Rect2(sf + Vector2(-4, -20 + k * 10), Vector2(8, 10)), ck)
 	# theme label
 	draw_string(ThemeDB.fallback_font, Vector2(16, 30), theme["name"],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.5))
@@ -570,7 +589,7 @@ func _draw() -> void:
 		draw_rect(Rect2(0, 0, w, size.y), Color(1.0, 0.45, 0.10, pulse))
 	# bays
 	if game:
-		for i in range(8):
+		for i in range(10):
 			var bp := _bay_pos(i)
 			var owned := int(game.owned[i])
 			var g: Dictionary = Economy.GENERATORS[i]
@@ -600,6 +619,12 @@ func _draw() -> void:
 		var dir := Vector2(cos(float(sk["angle"])), sin(float(sk["angle"])))
 		var pp: Vector2 = sk["pos"]
 		draw_line(pp - dir * 14.0, pp + dir * 14.0, Color(0.05, 0.05, 0.06, sa * 0.55), 7.0, true)
+	# drift trails (neon glow, over skids)
+	for tr in _trails:
+		var ta: float = float(tr["life"]) / float(tr["max"])
+		var tc: Color = tr["col"]
+		var tp: Vector2 = tr["pos"]
+		draw_circle(tp, 10.0 * ta + 4.0, Color(tc.r, tc.g, tc.b, ta * 0.30))
 	# smoke/sparks
 	for s in _smokes:
 		var a: float = float(s["life"]) / float(s["max"])
@@ -615,13 +640,14 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, 120, 20, Color(0.45, 1.0, 0.55, fa))
 	# cars
 	if game:
-		for i in range(8):
+		for i in range(10):
 			if int(game.owned[i]) <= 0:
 				continue
 			var c: Dictionary = _cars[i]
 			var drifting := int(c["mode"]) == M_TRACK and _in_drift_zone(float(c["track_t"]))
 			if drifting:
 				_spawn_skid(c["pos"], float(c["angle"]))
+				_spawn_drift_trail(c["pos"], _car_color(i))
 			var mv := _car_move(i)
 			var extra_yaw := 0.0
 			if drifting:
@@ -654,28 +680,49 @@ func _draw() -> void:
 
 func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: String, rarity: String, car_idx: int) -> void:
 	var yaw := angle
+	# suspension bounce (subtle)
+	var bounce := sin(_time * 18.0 + float(car_idx) * 1.7) * 1.5
+	var bp := p + Vector2(0, bounce)
+	# drift tilt — car slides sideways when drifting
+	var drift_angle := 0.0
+	if drifting:
+		drift_angle = sin(_time * 6.0 + float(car_idx)) * 0.25
+	yaw += drift_angle
 	# sprite (Kenney, faces up) — rotate so its nose follows travel dir
 	var tex: Texture2D = _car_tex[car_idx] if car_idx < _car_tex.size() else null
 	if tex != null:
 		# drop shadow for depth
-		draw_set_transform(p + Vector2(4, 6), yaw + PI * 0.5, Vector2(0.65, 0.65))
+		draw_set_transform(bp + Vector2(4, 6), yaw + PI * 0.5, Vector2(0.65, 0.65))
 		draw_texture(tex, -tex.get_size() * 0.5, Color(0, 0, 0, 0.35))
 		# car body (bigger so spoilers/details read)
-		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.65, 0.65))
+		draw_set_transform(bp, yaw + PI * 0.5, Vector2(0.65, 0.65))
 		draw_texture(tex, -tex.get_size() * 0.5)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		# SPOILER overlay — dark wing at the rear (makes it pop)
 		var dir := Vector2(cos(yaw), sin(yaw))
 		var perp := Vector2(-dir.y, dir.x)
-		var rear := p - dir * 30.0
+		var rear := bp - dir * 30.0
 		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.08, 0.08, 0.10, 0.95), 8.0, true)
 		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.25, 0.25, 0.30, 0.9), 3.0, true)
 		# DECAL — racing number roundel on the hood
-		var hood := p + dir * 12.0
+		var hood := bp + dir * 12.0
 		draw_circle(hood, 11.0, Color(1, 1, 1, 0.92))
 		draw_arc(hood, 11.0, 0, TAU, 16, Color(0.15, 0.15, 0.18, 0.9), 2.0)
 		draw_string(ThemeDB.fallback_font, hood + Vector2(-7, 6), str((car_idx % 9) + 1),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.12, 0.12, 0.15))
+		# EXHAUST — smoke puffs when drifting, flames on boost
+		var exhaust := bp - dir * 34.0
+		if drifting:
+			for i in range(3):
+				var off := Vector2(randf_range(-8, 8), randf_range(-8, 8))
+				var age := fposmod(_time * 2.0 + float(i) * 0.33 + float(car_idx), 1.0)
+				var sp := exhaust - dir * age * 24.0 + off * age
+				draw_circle(sp, 4.0 + age * 6.0, Color(0.7, 0.7, 0.72, 0.35 * (1.0 - age)))
+		# SPEED LINES — when moving fast
+		if not drifting:
+			for i in range(2):
+				var lp := bp - dir * (44.0 + float(i) * 14.0) + perp * (float(i) * 16.0 - 8.0)
+				draw_line(lp, lp + dir * 18.0, Color(1, 1, 1, 0.18), 2.0)
 	else:
 		# procedural fallback
 		var dir := Vector2(cos(yaw), sin(yaw))
@@ -683,15 +730,18 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: Str
 		var l := 26.0
 		var wd := 13.0
 		var body := PackedVector2Array([
-			p + dir * l - perp * wd, p + dir * l + perp * wd,
-			p - dir * l + perp * wd, p - dir * l - perp * wd,
+			bp + dir * l - perp * wd, bp + dir * l + perp * wd,
+			bp - dir * l + perp * wd, bp - dir * l - perp * wd,
 		])
 		draw_colored_polygon(body, col)
-	# rarity glow ring
+	# rarity glow ring (pulsing for mythic)
 	var rcol: Color = Economy.RARITY_COLORS.get(rarity, Color(1, 1, 1, 0.3))
-	if rarity == "legendary":
-		draw_arc(p, 34.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.6), 3.0)
+	if rarity == "mythic":
+		var pulse := 0.5 + 0.3 * sin(_time * 4.0)
+		draw_arc(bp, 36.0, 0, TAU, 24, Color(rcol.r, rcol.g, rcol.b, pulse), 3.0)
+	elif rarity == "legendary":
+		draw_arc(bp, 34.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.6), 3.0)
 	elif rarity == "exotic":
-		draw_arc(p, 32.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.4), 2.0)
+		draw_arc(bp, 32.0, 0, TAU, 20, Color(rcol.r, rcol.g, rcol.b, 0.4), 2.0)
 	if drifting:
-		draw_arc(p, 26.0, 0, TAU, 16, Color(1.0, 0.6, 0.2, 0.25), 3.0)
+		draw_arc(bp, 26.0, 0, TAU, 16, Color(1.0, 0.6, 0.2, 0.25), 3.0)
