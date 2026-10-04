@@ -26,6 +26,22 @@ const MECHANICS := [
 	{"name": "Nova", "cost": 90000000.0},
 ]
 
+# Sponsors: signable contracts {name, desc, bonus_type, bonus_target, bonus_mult, unlock_type, unlock_val}
+# bonus_type: "bay" (specific bay), "all" (all income), "style" (style gain)
+# unlock_type: "cars" (total cars), "bay" (bay index owned), "track" (track index owned), "rarity" (min rarity owned)
+const SPONSORS := [
+	{"name": "Grip Tire Co.", "desc": "+25% Tire Shop", "bonus_type": "bay", "bonus_target": 1, "bonus_mult": 1.25, "unlock_type": "cars", "unlock_val": 2},
+	{"name": "Octane Energy", "desc": "+15% style gain", "bonus_type": "style", "bonus_target": -1, "bonus_mult": 1.15, "unlock_type": "cars", "unlock_val": 5},
+	{"name": "Apex Parts", "desc": "+20% Tuning Lab", "bonus_type": "bay", "bonus_target": 3, "bonus_mult": 1.20, "unlock_type": "bay", "unlock_val": 3},
+	{"name": "Drift King Media", "desc": "+10% all income", "bonus_type": "all", "bonus_target": -1, "bonus_mult": 1.10, "unlock_type": "rarity", "unlock_val": 1},
+	{"name": "Nitrous Express", "desc": "+30% Engine Room", "bonus_type": "bay", "bonus_target": 4, "bonus_mult": 1.30, "unlock_type": "bay", "unlock_val": 4},
+	{"name": "Sunset Auto", "desc": "+15% Paint Booth", "bonus_type": "bay", "bonus_target": 2, "bonus_mult": 1.15, "unlock_type": "cars", "unlock_val": 3},
+	{"name": "Pro Circuit", "desc": "+20% Drift Contracts", "bonus_type": "bay", "bonus_target": 5, "bonus_mult": 1.20, "unlock_type": "track", "unlock_val": 1},
+	{"name": "Elite Motors", "desc": "+10% all income", "bonus_type": "all", "bonus_target": -1, "bonus_mult": 1.10, "unlock_type": "rarity", "unlock_val": 2},
+	{"name": "Champion Oil", "desc": "+25% Oil Bay", "bonus_type": "bay", "bonus_target": 0, "bonus_mult": 1.25, "unlock_type": "cars", "unlock_val": 8},
+	{"name": "Legend Racing", "desc": "+25% all income", "bonus_type": "all", "bonus_target": -1, "bonus_mult": 1.25, "unlock_type": "rarity", "unlock_val": 3},
+]
+
 # Daily rewards: 7-day streak calendar {day, type, amount/car_idx, label}
 # type: "cash", "car", "style"
 const DAILY_REWARDS := [

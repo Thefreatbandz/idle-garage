@@ -289,8 +289,16 @@ func _build_shop_panel() -> void:
 		btn.pressed.connect(func(): game.buy_upgrade(idx))
 		vb.add_child(hb)
 		_shop_btns.append({"label": nl, "btn": btn, "idx": u})
+	# SPONSORS section
+	var sh := _label("— SPONSORS (pick 3) —", 24, Vector2(0, 0), FONT_HUD, Color(0.5, 0.8, 1.0))
+	vb.add_child(sh)
+	_sponsors_vb = VBoxContainer.new()
+	_sponsors_vb.add_theme_constant_override("separation", 8)
+	vb.add_child(_sponsors_vb)
+	_refresh_sponsors()
 
 var _shop_btns := []
+var _sponsors_vb: VBoxContainer
 var _preview: Control
 var _hint_label: Label
 var _missions_vb: VBoxContainer
@@ -671,6 +679,31 @@ func refresh_shop() -> void:
 			var cost: float = Economy.UPGRADES[u]["cost"]
 			btn.text = "BUY $%s" % BigNum.fmt(cost)
 			btn.disabled = game.cash < cost
+	_refresh_sponsors()
+
+func _refresh_sponsors() -> void:
+	if not _sponsors_vb or not game:
+		return
+	for c in _sponsors_vb.get_children():
+		c.queue_free()
+	for si in range(Economy.SPONSORS.size()):
+		var s: Dictionary = Economy.SPONSORS[si]
+		var unlocked: bool = game.sponsor_unlocked(si)
+		var active: bool = si in game.sponsors_active
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 10)
+		_sponsors_vb.add_child(hb)
+		var nl := _label("%s\n%s" % [s["name"], s["desc"]], 24, Vector2(0, 0), FONT_HUD,
+			Color(0.5, 1.0, 0.6) if active else (Color(1, 1, 1) if unlocked else Color(1, 1, 1, 0.35)))
+		nl.custom_minimum_size = Vector2(420, 64)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(nl)
+		var btn := _button("ACTIVE" if active else ("SIGN" if unlocked else "LOCKED"), Vector2(0, 0), Vector2(200, 60), 24)
+		remove_child(btn)
+		hb.add_child(btn)
+		var sii := si
+		btn.pressed.connect(func(): game.toggle_sponsor(sii))
+		btn.disabled = not unlocked
 
 func _update_hint() -> void:
 	if not _hint_label:

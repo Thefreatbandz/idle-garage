@@ -28,6 +28,8 @@ var daily_streak := 0  # 1..7
 var mission_date := ""  # YYYY-MM-DD
 var missions_done := [false, false, false, false]
 var mission_prog := [0.0, 0.0, 0.0, 0.0]
+# sponsors (v10): up to 3 active
+var sponsors_active := [-1, -1, -1]
 
 var _save_t := 0.0
 var _ui: CanvasLayer
@@ -94,6 +96,80 @@ func claim_daily() -> void:
 	_ui.refresh_all()
 	_save()
 
+# sponsors
+func sponsor_unlocked(si: int) -> bool:
+	var s: Dictionary = Economy.SPONSORS[si]
+	match String(s["unlock_type"]):
+		"cars":
+			var n := 0
+			for c in cars_owned:
+				if c:
+					n += 1
+			return n >= int(s["unlock_val"])
+		"bay":
+			return owned[int(s["unlock_val"])] > 0
+		"track":
+			return tracks_owned[int(s["unlock_val"])]
+		"rarity":
+			# rarity index: 0=regular, 1=rare, 2=exotic, 3=legendary
+			var need := int(s["unlock_val"])
+			for ci in range(Economy.CARS.size()):
+				if cars_owned[ci]:
+					var r: String = Economy.CARS[ci]["rarity"]
+					var ri := 0
+					match r:
+						"rare": ri = 1
+						"exotic": ri = 2
+						"legendary": ri = 3
+					if ri >= need:
+						return true
+			return false
+	return false
+
+func toggle_sponsor(si: int) -> void:
+	if not sponsor_unlocked(si):
+		return
+	if si in sponsors_active:
+		sponsors_active[sponsors_active.find(si)] = -1
+	else:
+		# fill first empty slot
+		for i in range(3):
+			if sponsors_active[i] == -1:
+				sponsors_active[i] = si
+				break
+	_ui.refresh_all()
+	_save()
+
+func sponsor_bay_mult(bay: int) -> float:
+	var m := 1.0
+	for si in sponsors_active:
+		if si < 0:
+			continue
+		var s: Dictionary = Economy.SPONSORS[si]
+		if String(s["bonus_type"]) == "bay" and int(s["bonus_target"]) == bay:
+			m *= float(s["bonus_mult"])
+	return m
+
+func sponsor_all_mult() -> float:
+	var m := 1.0
+	for si in sponsors_active:
+		if si < 0:
+			continue
+		var s: Dictionary = Economy.SPONSORS[si]
+		if String(s["bonus_type"]) == "all":
+			m *= float(s["bonus_mult"])
+	return m
+
+func sponsor_style_mult() -> float:
+	var m := 1.0
+	for si in sponsors_active:
+		if si < 0:
+			continue
+		var s: Dictionary = Economy.SPONSORS[si]
+		if String(s["bonus_type"]) == "style":
+			m *= float(s["bonus_mult"])
+	return m
+
 # missions
 func mission_progress(id: String, amount: float) -> void:
 	var mi := -1
@@ -135,7 +211,7 @@ func _process(dt: float) -> void:
 		if owned[i] > 0:
 			var car: Dictionary = Economy.CARS[cars_equipped[i]]
 			style_rate += float(car["style"])
-	style_meter += style_rate * dt * 0.5
+	style_meter += style_rate * dt * 0.5 * sponsor_style_mult()
 	if style_meter >= 100.0:
 		style_meter = 0.0
 		heat_timer = 30.0
@@ -228,8 +304,9 @@ func income_per_sec() -> float:
 	var pm := prestige_mult()
 	var hm := heat_mult()
 	var tm: float = Economy.TRACKS[track_selected]["bonus"]
+	var sm := sponsor_all_mult()
 	for i in range(8):
-		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm * tm
+		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm * tm * sm * sponsor_bay_mult(i)
 	return total
 
 func buy_car(ci: int) -> void:
@@ -328,6 +405,7 @@ func _save() -> void:
 		"tracks_owned": tracks_owned, "track_selected": track_selected,
 		"last_daily": last_daily, "daily_streak": daily_streak,
 		"mission_date": mission_date, "missions_done": missions_done, "mission_prog": mission_prog,
+		"sponsors_active": sponsors_active,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -377,6 +455,9 @@ func _load() -> void:
 	var mp: Array = d.get("mission_prog", [0.0, 0.0, 0.0, 0.0])
 	for i in range(4):
 		mission_prog[i] = float(mp[i]) if i < mp.size() else 0.0
+	var sa: Array = d.get("sponsors_active", [-1, -1, -1])
+	for i in range(3):
+		sponsors_active[i] = int(sa[i]) if i < sa.size() else -1
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0
