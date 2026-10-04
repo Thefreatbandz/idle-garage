@@ -6,10 +6,11 @@ const FONT_HUD := preload("res://assets/fonts/Rajdhani.ttf")
 const FONT_MONO := preload("res://assets/fonts/ShareTechMono.ttf")
 
 # clean text badges (emoji renders as tofu on some phones)
-const BADGES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT"]
+const BADGES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO"]
 const BADGE_COLORS := [
 	Color(0.95, 0.62, 0.25), Color(0.45, 0.55, 0.65), Color(0.95, 0.35, 0.55),
 	Color(0.35, 0.75, 0.95), Color(0.95, 0.75, 0.25), Color(0.90, 0.30, 0.25),
+	Color(0.55, 0.85, 0.95), Color(0.75, 0.45, 0.95),
 ]
 
 var game  # main.gd
@@ -153,7 +154,7 @@ func _build_bays_panel() -> void:
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size = Vector2(680, 36)
 	vb.add_child(_hint_label)
-	for i in range(6):
+	for i in range(8):
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(680, 150)
 		var sb := StyleBoxFlat.new()
@@ -241,7 +242,7 @@ func _build_crew_panel() -> void:
 	p.add_child(vb)
 	var hint := _label("Mechanics boost their bay's income by +50%.", 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7))
 	vb.add_child(hint)
-	for i in range(6):
+	for i in range(8):
 		var g: Dictionary = Economy.GENERATORS[i]
 		var m: Dictionary = Economy.MECHANICS[i]
 		var hb := HBoxContainer.new()
@@ -311,6 +312,30 @@ func _refresh_cars() -> void:
 			owned_n += 1
 	var coll := _label("COLLECTION %d/%d" % [owned_n, game.cars_owned.size()], 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.75, 0.30))
 	_cars_vb.add_child(coll)
+	# TRACK SELECTOR
+	var tkh := _label("— TRACK —", 24, Vector2(0, 0), FONT_HUD, Color(0.5, 0.8, 1.0))
+	_cars_vb.add_child(tkh)
+	for ti in range(Economy.TRACKS.size()):
+		var tr: Dictionary = Economy.TRACKS[ti]
+		var thb := HBoxContainer.new()
+		thb.add_theme_constant_override("separation", 10)
+		_cars_vb.add_child(thb)
+		var tn := _label("%s\n+%d%% income" % [tr["name"], int((float(tr["bonus"]) - 1.0) * 100)], 24, Vector2(0, 0), FONT_HUD, Color(1, 1, 1))
+		tn.custom_minimum_size = Vector2(400, 60)
+		tn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		thb.add_child(tn)
+		var tbtn := _button("RACE" if ti == game.track_selected else ("BUY $%s" % BigNum.fmt(tr["cost"]) if not game.tracks_owned[ti] else "SELECT"), Vector2(0, 0), Vector2(220, 60), 24)
+		remove_child(tbtn)
+		thb.add_child(tbtn)
+		var tii := ti
+		if not game.tracks_owned[ti]:
+			tbtn.pressed.connect(func(): game.buy_track(tii))
+			tbtn.disabled = game.cash < float(tr["cost"])
+		elif ti == game.track_selected:
+			tbtn.disabled = true
+		else:
+			tbtn.pressed.connect(func(): game.select_track(tii))
+	_cars_vb.add_child(_label("— CARS —", 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.75, 0.30)))
 	# style meter header
 	var heat_txt := "HEAT ACTIVE! 2x income (%ds)" % int(game.heat_timer) if game.heat_timer > 0 else "Style %d/100 — full meter = 30s 2x HEAT" % int(game.style_meter)
 	var hm := _label(heat_txt, 24, Vector2(0, 0), FONT_HUD, Color(1.0, 0.5, 0.2) if game.heat_timer > 0 else Color(1, 1, 1, 0.7))
@@ -505,7 +530,7 @@ func tick(dt: float) -> void:
 	_cash_l.text = "$%s" % BigNum.fmt(game.cash)
 	_ips_l.text = "$%s" % BigNum.fmt(game.income_per_sec())
 	# update generator bars (every frame)
-	for i in range(6):
+	for i in range(8):
 		var c: Dictionary = _cards[i]
 		(c["bar"] as ProgressBar).value = game.progress[i]
 	# refresh button affordability 2x/sec (fixes stale disabled states)
@@ -524,7 +549,7 @@ var _btn_t := 0.0
 
 func _refresh_button_states() -> void:
 	# generator buys
-	for i in range(6):
+	for i in range(8):
 		var c: Dictionary = _cards[i]
 		var g: Dictionary = Economy.GENERATORS[i]
 		var owned: int = game.owned[i]
@@ -569,7 +594,7 @@ func refresh_all() -> void:
 func refresh_generators() -> void:
 	var gm: float = game.global_mult()
 	var pm: float = game.prestige_mult()
-	for i in range(6):
+	for i in range(8):
 		var g: Dictionary = Economy.GENERATORS[i]
 		var c: Dictionary = _cards[i]
 		var owned: int = game.owned[i]
@@ -599,7 +624,7 @@ func refresh_generators() -> void:
 		buy.disabled = game.cash < cost
 
 func refresh_crew() -> void:
-	for i in range(6):
+	for i in range(8):
 		var e: Dictionary = _mech_btns[i]
 		var btn: Button = e["btn"]
 		if game.mechanics[i]:

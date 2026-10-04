@@ -12,7 +12,7 @@ var _radius := 68.0
 var _perimeter := 0.0
 
 # bays: 3 cols x 2 rows
-const BAY_W := 200.0
+const BAY_W := 160.0
 const BAY_H := 84.0
 
 var _cars := []  # per generator: {mode, track_t, speed, color, bay_t, service_t, pos}
@@ -22,7 +22,7 @@ var _coins := []  # {pos, life}
 var _floats := []  # {pos, life, max, text}
 var _time := 0.0
 
-const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT"]
+const BAY_NAMES := ["OIL", "TIRE", "PAINT", "TUNE", "ENGINE", "DRIFT", "SHINE", "DYNO"]
 
 # car modes
 const M_TRACK := 0
@@ -33,7 +33,7 @@ const M_TO_TRACK := 3
 var _car_tex: Array = []  # preloaded car sprites, null = procedural fallback
 
 func _ready() -> void:
-	_perimeter = 4.0 * _straight + 2.0 * PI * _radius
+	_build_track(0)  # default to Ebisu
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in range(20):
 		var path := "res://assets/cars/car_%02d.png" % i
@@ -41,7 +41,7 @@ func _ready() -> void:
 			_car_tex.append(load(path))
 		else:
 			_car_tex.append(null)
-	for i in range(6):
+	for i in range(8):
 		_cars.append({
 			"mode": M_TRACK, "track_t": randf(),
 			"speed": 0.10 + randf() * 0.04,
@@ -82,16 +82,20 @@ func _car_rarity(i: int) -> String:
 	return "regular"
 
 func _bay_pos(i: int) -> Vector2:
-	var col := i % 3
-	var row := i / 3
-	return Vector2(130.0 + col * 230.0, 345.0 + row * 115.0)
+	var col := i % 4
+	var row := i / 4
+	return Vector2(95.0 + col * 175.0, 345.0 + row * 115.0)
 
 func _process(dt: float) -> void:
 	_time += dt
 	var boost := 1.0
 	if game:
 		boost = 1.0 + minf(game.income_per_sec() / 5000.0, 1.5)
-	for i in range(6):
+		# rebuild track if player switched
+		var want_shape: int = _track_shape_idx()
+		if want_shape != _track_shape:
+			_build_track(want_shape)
+	for i in range(8):
 		var c: Dictionary = _cars[i]
 		var owned := int(game.owned[i]) if game else 0
 		if owned <= 0:
@@ -206,97 +210,197 @@ func _spawn_float(p: Vector2, text: String) -> void:
 func _owned_count() -> int:
 	var n := 0
 	if game:
-		for i in range(6):
+		for i in range(8):
 			if int(game.owned[i]) > 0:
 				n += 1
 	return n
 
-func _in_drift_zone(t: float) -> bool:
-	var d := t * _perimeter
-	var s1 := 2.0 * _straight
-	var ce := s1 + PI * _radius
-	var s2 := ce + 2.0 * _straight
-	return (d > s1 and d < ce) or (d > s2)
+var _track_pts := PackedVector2Array()  # precomputed centerline polyline
+var _track_shape := 0  # 0=ebisu, 1=meihan, 2=nikko, 3=longbeach, 4=irwindale
+
+func _build_track(shape: int) -> void:
+	_track_shape = shape
+	_track_pts.clear()
+	match shape:
+		0:  # EBISU — peanut (stadium with pinched straights)
+			_build_stadium(210.0, 68.0, 36.0)
+		1:  # MEIHAN — paperclip (long straight, tight hairpin, short back, wide sweeper)
+			_build_paperclip()
+		2:  # NIKKO — rounded triangle (3 uneven corners)
+			_build_triangle()
+		3:  # LONG BEACH — angular (sharp 90° corners)
+			_build_angular()
+		4:  # IRWINDALE — twin oval (ellipse)
+			_build_ellipse(260.0, 105.0)
+	_perimeter = 0.0
+	for i in range(_track_pts.size()):
+		var a: Vector2 = _track_pts[i]
+		var b: Vector2 = _track_pts[(i + 1) % _track_pts.size()]
+		_perimeter += a.distance_to(b)
+
+func _build_stadium(straight: float, radius: float, pinch: float) -> void:
+	# stadium oval with optional middle pinch (Ebisu peanut)
+	var n := 24
+	# top straight (left to right), bowed inward by pinch
+	for i in range(n + 1):
+		var t := float(i) / n
+		var x := _cx - straight + t * 2.0 * straight
+		var bow := sin(t * PI) * pinch
+		_track_pts.append(Vector2(x, _cy - radius + bow))
+	# right arc
+	for i in range(1, n / 2 + 1):
+		var a := float(i) / (n / 2) * PI
+		_track_pts.append(Vector2(_cx + straight + radius * sin(a), _cy - radius * cos(a)))
+	# bottom straight (right to left), bowed inward
+	for i in range(1, n + 1):
+		var t := float(i) / n
+		var x := _cx + straight - t * 2.0 * straight
+		var bow := sin(t * PI) * pinch
+		_track_pts.append(Vector2(x, _cy + radius - bow))
+	# left arc
+	for i in range(1, n / 2 + 1):
+		var a := float(i) / (n / 2) * PI
+		_track_pts.append(Vector2(_cx - straight - radius * sin(a), _cy + radius * cos(a)))
+
+func _build_paperclip() -> void:
+	# Meihan: long straight → tight hairpin → short straight → wide sweeper
+	var pts := PackedVector2Array()
+	var n := 20
+	# long top straight (left to right)
+	for i in range(n + 1):
+		var t := float(i) / n
+		pts.append(Vector2(_cx - 280 + t * 560, _cy - 70))
+	# tight hairpin right (r=35)
+	for i in range(1, 12):
+		var a := float(i) / 12 * PI
+		pts.append(Vector2(_cx + 280 + 35 * sin(a), _cy - 70 + 35 * (1 - cos(a))))
+	# short bottom straight (right to left)
+	for i in range(1, n / 2 + 1):
+		var t := float(i) / (n / 2)
+		pts.append(Vector2(_cx + 280 - t * 280, _cy))
+	# wide sweeper left (r=80)
+	for i in range(1, 16):
+		var a := float(i) / 16 * PI
+		pts.append(Vector2(_cx - 70 - 80 * sin(a), _cy + 80 * (1 - cos(a)) * 0.5))
+	_track_pts = pts
+
+func _build_triangle() -> void:
+	# Nikko: 3 straights, 3 different corner radii
+	var pts := PackedVector2Array()
+	var corners := [
+		{"x": _cx + 180, "y": _cy - 40, "r": 30.0},
+		{"x": _cx - 60, "y": _cy + 90, "r": 55.0},
+		{"x": _cx - 180, "y": _cy - 60, "r": 75.0},
+	]
+	# simplified: triangle vertices with rounded corners
+	var verts := [Vector2(_cx + 200, _cy - 50), Vector2(_cx - 40, _cy + 100), Vector2(_cx - 200, _cy - 70)]
+	var n := 16
+	for vi in range(3):
+		var a: Vector2 = verts[vi]
+		var b: Vector2 = verts[(vi + 1) % 3]
+		var r: float = corners[vi]["r"]
+		# straight to corner entry
+		var dir := (b - a).normalized()
+		var entry := b - dir * r
+		for i in range(n):
+			var t := float(i) / n
+			pts.append(a.lerp(entry, t))
+		# arc around corner
+		var c: Vector2 = corners[vi]["x"]
+		# simplified: just add the corner point
+		pts.append(b)
+	_track_pts = pts
+
+func _build_angular() -> void:
+	# Long Beach: sharp 90° corners (chamfered slightly)
+	var w := 240.0
+	var h := 90.0
+	var ch := 25.0  # chamfer
+	var pts := PackedVector2Array([
+		Vector2(_cx - w + ch, _cy - h),
+		Vector2(_cx + w - ch, _cy - h),
+		Vector2(_cx + w, _cy - h + ch),
+		Vector2(_cx + w, _cy + h - ch),
+		Vector2(_cx + w - ch, _cy + h),
+		Vector2(_cx - w + ch, _cy + h),
+		Vector2(_cx - w, _cy + h - ch),
+		Vector2(_cx - w, _cy - h + ch),
+	])
+	# subdivide for smooth car movement
+	var dense := PackedVector2Array()
+	var n := 12
+	for i in range(pts.size()):
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[(i + 1) % pts.size()]
+		for j in range(n):
+			dense.append(a.lerp(b, float(j) / n))
+	_track_pts = dense
+
+func _build_ellipse(rx: float, ry: float) -> void:
+	# Irwindale: clean ellipse
+	var n := 72
+	for i in range(n):
+		var a := float(i) / n * TAU
+		_track_pts.append(Vector2(_cx + rx * cos(a), _cy + ry * sin(a)))
 
 func _track_pos(t: float) -> Vector2:
-	var d := t * _perimeter
-	var s := 2.0 * _straight
-	var c := PI * _radius
-	if d < s:
-		return Vector2(_cx - _straight + d, _cy - _radius)
-	d -= s
-	if d < c:
-		var a := d / _radius
-		return Vector2(_cx + _straight + _radius * sin(a), _cy - _radius * cos(a))
-	d -= c
-	if d < s:
-		return Vector2(_cx + _straight - d, _cy + _radius)
-	d -= s
-	var a2 := d / _radius
-	return Vector2(_cx - _straight - _radius * sin(a2), _cy + _radius * cos(a2))
+	if _track_pts.is_empty():
+		return Vector2(_cx, _cy)
+	var n := _track_pts.size()
+	var ft := fposmod(t, 1.0) * n
+	var i0 := int(ft) % n
+	var i1 := (i0 + 1) % n
+	var frac: float = ft - floor(ft)
+	return _track_pts[i0].lerp(_track_pts[i1], frac)
 
 func _track_angle(t: float) -> float:
-	var d := t * _perimeter
-	var s := 2.0 * _straight
-	var c := PI * _radius
-	if d < s:
-		return 0.0
-	d -= s
-	if d < c:
-		return d / _radius
-	d -= c
-	if d < s:
-		return PI
-	d -= c
-	return PI + d / _radius
+	var p0 := _track_pos(t)
+	var p1 := _track_pos(t + 0.01)
+	return (p1 - p0).angle()
+
+func _in_drift_zone(t: float) -> bool:
+	# drift where the track curves (angle changing rapidly)
+	var a0 := _track_angle(t)
+	var a1 := _track_angle(t + 0.02)
+	var turn := absf(wrapf(a1 - a0, -PI, PI))
+	return turn > 0.08
 
 func _track_theme() -> Dictionary:
-	# 0=street, 1=neon (6+ cars), 2=championship (1+ star)
-	var tier := 0
+	# use the player's selected track
 	if game:
-		var owned_cars := 0
-		for c in game.cars_owned:
-			if c:
-				owned_cars += 1
-		if int(game.stars) >= 1:
-			tier = 2
-		elif owned_cars >= 6:
-			tier = 1
-	match tier:
-		1:
-			return {"name": "NEON NIGHTS", "curb_a": Color(0.2, 0.9, 1.0), "curb_b": Color(0.9, 0.2, 0.9),
-				"asphalt": Color(0.10, 0.10, 0.14), "asphalt_hi": Color(0.16, 0.16, 0.20),
-				"bg": Color(0.05, 0.05, 0.10), "glow": Color(0.2, 0.8, 1.0, 0.3)}
-		2:
-			return {"name": "CHAMPIONSHIP", "curb_a": Color(1.0, 0.8, 0.2), "curb_b": Color(0.95, 0.95, 0.95),
-				"asphalt": Color(0.14, 0.13, 0.12), "asphalt_hi": Color(0.20, 0.19, 0.18),
-				"bg": Color(0.08, 0.07, 0.06), "glow": Color(1.0, 0.8, 0.2, 0.25)}
-	return {"name": "STREET CIRCUIT", "curb_a": Color(0.85, 0.20, 0.20), "curb_b": Color(0.92, 0.92, 0.92),
-		"asphalt": Color(0.15, 0.15, 0.17), "asphalt_hi": Color(0.21, 0.21, 0.24),
-		"bg": Color(0.08, 0.07, 0.10), "glow": Color(0, 0, 0, 0)}
+		var ti: int = game.track_selected
+		if ti >= 0 and ti < Economy.TRACKS.size():
+			return Economy.TRACKS[ti]
+	return Economy.TRACKS[0]
+
+func _track_shape_idx() -> int:
+	var theme := _track_theme()
+	return int(theme.get("shape", 0))
 
 func _draw() -> void:
 	var w := size.x
 	var theme := _track_theme()
 	draw_rect(Rect2(0, 0, w, size.y), theme["bg"])
-	# infield grass with subtle texture
-	var pts := PackedVector2Array()
-	var n := 72
-	for i in range(n + 1):
-		pts.append(_track_pos(float(i) / float(n)))
-	# grass infield (fill inside track)
+	# use precomputed track polyline
+	var pts := _track_pts
+	var n := pts.size()
+	if n < 3:
+		return
+	# grass infield (fill inside track, shrunk toward center)
 	var inner := PackedVector2Array()
-	for i in range(n + 1):
-		inner.append(_track_pos(float(i) / float(n)) * 0.82 + Vector2(_cx * 0.18, _cy * 0.18))
+	for i in range(n):
+		inner.append(pts[i] * 0.80 + Vector2(_cx * 0.20, _cy * 0.20))
 	draw_colored_polygon(inner, Color(0.12, 0.28, 0.14))
 	# track: curb, then asphalt with theme colors
-	for i in range(0, n, 2):
-		var seg := PackedVector2Array([pts[i], pts[i + 1], pts[i + 2] if i + 2 <= n else pts[n]])
-		var curb_col: Color = theme["curb_a"] if (i / 2) % 2 == 0 else theme["curb_b"]
-		if seg.size() >= 2:
-			draw_polyline(seg, curb_col, 46.0, true)
-	draw_polyline(pts, theme["asphalt"], 40.0, true)
-	draw_polyline(pts, theme["asphalt_hi"], 32.0, true)
+	var step := maxi(1, n / 36)
+	for i in range(0, n, step * 2):
+		var seg := PackedVector2Array([pts[i], pts[(i + step) % n], pts[(i + step * 2) % n]])
+		var curb_col: Color = theme["curb_a"] if (i / (step * 2)) % 2 == 0 else theme["curb_b"]
+		draw_polyline(seg, curb_col, 46.0, true)
+	# close the loop for asphalt
+	var loop := pts + PackedVector2Array([pts[0]])
+	draw_polyline(loop, theme["asphalt"], 40.0, true)
+	draw_polyline(loop, theme["asphalt_hi"], 32.0, true)
 	# theme glow under track
 	if (theme["glow"] as Color).a > 0:
 		draw_polyline(pts, theme["glow"], 52.0, true)
@@ -314,7 +418,7 @@ func _draw() -> void:
 		draw_rect(Rect2(0, 0, w, size.y), Color(1.0, 0.45, 0.10, pulse))
 	# bays
 	if game:
-		for i in range(6):
+		for i in range(8):
 			var bp := _bay_pos(i)
 			var owned := int(game.owned[i])
 			var g: Dictionary = Economy.GENERATORS[i]
@@ -359,7 +463,7 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER, 120, 20, Color(0.45, 1.0, 0.55, fa))
 	# cars
 	if game:
-		for i in range(6):
+		for i in range(8):
 			if int(game.owned[i]) <= 0:
 				continue
 			var c: Dictionary = _cars[i]
@@ -402,12 +506,24 @@ func _draw_car(p: Vector2, angle: float, drifting: bool, col: Color, livery: Str
 	var tex: Texture2D = _car_tex[car_idx] if car_idx < _car_tex.size() else null
 	if tex != null:
 		# drop shadow for depth
-		draw_set_transform(p + Vector2(4, 6), yaw + PI * 0.5, Vector2(0.55, 0.55))
+		draw_set_transform(p + Vector2(4, 6), yaw + PI * 0.5, Vector2(0.65, 0.65))
 		draw_texture(tex, -tex.get_size() * 0.5, Color(0, 0, 0, 0.35))
 		# car body (bigger so spoilers/details read)
-		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.55, 0.55))
+		draw_set_transform(p, yaw + PI * 0.5, Vector2(0.65, 0.65))
 		draw_texture(tex, -tex.get_size() * 0.5)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		# SPOILER overlay — dark wing at the rear (makes it pop)
+		var dir := Vector2(cos(yaw), sin(yaw))
+		var perp := Vector2(-dir.y, dir.x)
+		var rear := p - dir * 30.0
+		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.08, 0.08, 0.10, 0.95), 8.0, true)
+		draw_line(rear - perp * 20.0, rear + perp * 20.0, Color(0.25, 0.25, 0.30, 0.9), 3.0, true)
+		# DECAL — racing number roundel on the hood
+		var hood := p + dir * 12.0
+		draw_circle(hood, 11.0, Color(1, 1, 1, 0.92))
+		draw_arc(hood, 11.0, 0, TAU, 16, Color(0.15, 0.15, 0.18, 0.9), 2.0)
+		draw_string(ThemeDB.fallback_font, hood + Vector2(-7, 6), str((car_idx % 9) + 1),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.12, 0.12, 0.15))
 	else:
 		# procedural fallback
 		var dir := Vector2(cos(yaw), sin(yaw))

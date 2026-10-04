@@ -4,12 +4,14 @@ extends RefCounted
 
 # [name, icon, base_cost, base_payout, base_time_s, unlock_at_lifetime]
 const GENERATORS := [
-	{"name": "Oil Change Bay", "icon": "🛢", "cost": 25.0, "payout": 25.0, "time": 3.0, "unlock": 0.0},
-	{"name": "Tire Shop", "icon": "🛞", "cost": 150.0, "payout": 150.0, "time": 8.0, "unlock": 500.0},
-	{"name": "Paint Booth", "icon": "🎨", "cost": 1200.0, "payout": 800.0, "time": 20.0, "unlock": 5000.0},
-	{"name": "Tuning Lab", "icon": "⚙", "cost": 8000.0, "payout": 4000.0, "time": 45.0, "unlock": 40000.0},
-	{"name": "Engine Build Room", "icon": "🔧", "cost": 60000.0, "payout": 25000.0, "time": 120.0, "unlock": 300000.0},
-	{"name": "Drift Contract Board", "icon": "🏁", "cost": 400000.0, "payout": 150000.0, "time": 300.0, "unlock": 2000000.0},
+	{"name": "Oil Change Bay", "icon": "OIL", "cost": 25.0, "payout": 25.0, "time": 3.0, "unlock": 0.0},
+	{"name": "Tire Shop", "icon": "TIRE", "cost": 150.0, "payout": 150.0, "time": 8.0, "unlock": 500.0},
+	{"name": "Paint Booth", "icon": "PAINT", "cost": 1200.0, "payout": 800.0, "time": 20.0, "unlock": 5000.0},
+	{"name": "Tuning Lab", "icon": "TUNE", "cost": 8000.0, "payout": 4000.0, "time": 45.0, "unlock": 40000.0},
+	{"name": "Engine Build Room", "icon": "ENGINE", "cost": 60000.0, "payout": 25000.0, "time": 120.0, "unlock": 300000.0},
+	{"name": "Drift Contract Board", "icon": "DRIFT", "cost": 400000.0, "payout": 150000.0, "time": 300.0, "unlock": 2000000.0},
+	{"name": "Detailing Studio", "icon": "SHINE", "cost": 2500000.0, "payout": 800000.0, "time": 600.0, "unlock": 12000000.0},
+	{"name": "Dyno Room", "icon": "DYNO", "cost": 15000000.0, "payout": 4000000.0, "time": 1200.0, "unlock": 80000000.0},
 ]
 
 # Mechanics (managers): one per generator [name, cost]
@@ -20,6 +22,33 @@ const MECHANICS := [
 	{"name": "Yuki", "cost": 60000.0},
 	{"name": "Rosa", "cost": 400000.0},
 	{"name": "Ghost", "cost": 2500000.0},
+	{"name": "Vex", "cost": 15000000.0},
+	{"name": "Nova", "cost": 90000000.0},
+]
+
+# Buyable tracks: {name, cost, bonus (income mult), shape (0-4), curb_a, curb_b, asphalt, asphalt_hi, bg, glow}
+# shapes: 0=Ebisu peanut, 1=Meihan paperclip, 2=Nikko triangle, 3=Long Beach angular, 4=Irwindale ellipse
+const TRACKS := [
+	{"name": "Ebisu Nights", "cost": 0.0, "bonus": 1.0, "shape": 0,
+		"curb_a": Color(0.85, 0.20, 0.20), "curb_b": Color(0.92, 0.92, 0.92),
+		"asphalt": Color(0.15, 0.15, 0.17), "asphalt_hi": Color(0.21, 0.21, 0.24),
+		"bg": Color(0.08, 0.07, 0.10), "glow": Color(0, 0, 0, 0)},
+	{"name": "Meihan Wall", "cost": 150000.0, "bonus": 1.10, "shape": 1,
+		"curb_a": Color(0.90, 0.75, 0.20), "curb_b": Color(0.20, 0.20, 0.22),
+		"asphalt": Color(0.16, 0.16, 0.17), "asphalt_hi": Color(0.22, 0.22, 0.24),
+		"bg": Color(0.09, 0.08, 0.09), "glow": Color(0.9, 0.75, 0.2, 0.15)},
+	{"name": "Nikko Tech", "cost": 600000.0, "bonus": 1.15, "shape": 2,
+		"curb_a": Color(0.92, 0.92, 0.92), "curb_b": Color(0.85, 0.20, 0.20),
+		"asphalt": Color(0.14, 0.15, 0.14), "asphalt_hi": Color(0.20, 0.21, 0.20),
+		"bg": Color(0.07, 0.09, 0.07), "glow": Color(0, 0, 0, 0)},
+	{"name": "Long Beach", "cost": 3000000.0, "bonus": 1.20, "shape": 3,
+		"curb_a": Color(0.30, 0.55, 0.95), "curb_b": Color(0.92, 0.92, 0.92),
+		"asphalt": Color(0.13, 0.13, 0.15), "asphalt_hi": Color(0.19, 0.19, 0.22),
+		"bg": Color(0.07, 0.08, 0.10), "glow": Color(0.3, 0.55, 0.95, 0.18)},
+	{"name": "Irwindale", "cost": 12000000.0, "bonus": 1.30, "shape": 4,
+		"curb_a": Color(0.92, 0.92, 0.92), "curb_b": Color(0.85, 0.20, 0.20),
+		"asphalt": Color(0.10, 0.11, 0.15), "asphalt_hi": Color(0.15, 0.16, 0.21),
+		"bg": Color(0.03, 0.03, 0.07), "glow": Color(0.5, 0.7, 1.0, 0.25)},
 ]
 
 # Global upgrades: [name, desc, cost, mult] — mult applies to all income
@@ -34,6 +63,11 @@ const UPGRADES := [
 	{"name": "Wind Tunnel", "desc": "+75% all income", "cost": 150000000.0, "mult": 1.75},
 	{"name": "Factory Team", "desc": "+100% all income", "cost": 800000000.0, "mult": 2.0},
 	{"name": "Legend Status", "desc": "+150% all income", "cost": 5000000000.0, "mult": 2.5},
+	{"name": "Carbon Lab", "desc": "+60% all income", "cost": 25000000.0, "mult": 1.6},
+	{"name": "Telemetry Rig", "desc": "+75% all income", "cost": 120000000.0, "mult": 1.75},
+	{"name": "Aero Tunnel", "desc": "+100% all income", "cost": 600000000.0, "mult": 2.0},
+	{"name": "Works Team", "desc": "+125% all income", "cost": 3000000000.0, "mult": 2.25},
+	{"name": "Hall of Fame", "desc": "+200% all income", "cost": 20000000000.0, "mult": 3.0},
 ]
 
 const COST_GROWTH := 1.15

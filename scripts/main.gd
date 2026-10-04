@@ -6,15 +6,17 @@ const SAVE_PATH := "user://idle_garage.save"
 var cash := 0.0
 var lifetime := 0.0  # lifetime earnings (this prestige)
 var total_earned := 0.0  # all-time (for achievements)
-var owned := [1, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
-var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
-var mechanics := [false, false, false, false, false, false]
+var owned := [1, 0, 0, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
+var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
+var mechanics := [false, false, false, false, false, false, false, false]
 var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
 var prestige_count := 0
 var achievements := []  # unlocked indices into Economy.ACHIEVEMENTS
 var cars_owned := [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
-var cars_equipped := [0, 0, 0, 0, 0, 0]  # car index per generator bay
+var cars_equipped := [0, 0, 0, 0, 0, 0, 0, 0]  # car index per generator bay
+var tracks_owned := [true, false, false, false, false]
+var track_selected := 0  # index into Economy.TRACKS
 var style_meter := 0.0  # 0..100, fills from drifting
 var heat_timer := 0.0  # >0 = 2x HEAT bonus active
 var bulk := 1  # 1, 10, 100, -1 (MAX)
@@ -46,7 +48,7 @@ func _process(dt: float) -> void:
 	dt = minf(dt, 1.0)
 	var gmult := global_mult()
 	var pmult := prestige_mult()
-	for i in range(6):
+	for i in range(8):
 		if owned[i] <= 0:
 			continue
 		var g: Dictionary = Economy.GENERATORS[i]
@@ -60,7 +62,7 @@ func _process(dt: float) -> void:
 			_ui.float_text(i, pay)
 	# style meter fills from equipped cars drifting; full = 30s 2x HEAT
 	var style_rate := 0.0
-	for i in range(6):
+	for i in range(8):
 		if owned[i] > 0:
 			var car: Dictionary = Economy.CARS[cars_equipped[i]]
 			style_rate += float(car["style"])
@@ -153,8 +155,9 @@ func income_per_sec() -> float:
 	var gm := global_mult()
 	var pm := prestige_mult()
 	var hm := heat_mult()
-	for i in range(6):
-		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm
+	var tm: float = Economy.TRACKS[track_selected]["bonus"]
+	for i in range(8):
+		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i) * hm * tm
 	return total
 
 func buy_car(ci: int) -> void:
@@ -170,6 +173,23 @@ func equip_car(bay: int, ci: int) -> void:
 	if not cars_owned[ci]:
 		return
 	cars_equipped[bay] = ci
+	_ui.refresh_all()
+	_save()
+
+func buy_track(ti: int) -> void:
+	if tracks_owned[ti]:
+		return
+	var cost: float = Economy.TRACKS[ti]["cost"]
+	if spend(cost):
+		tracks_owned[ti] = true
+		track_selected = ti
+		_ui.refresh_all()
+		_save()
+
+func select_track(ti: int) -> void:
+	if not tracks_owned[ti]:
+		return
+	track_selected = ti
 	_ui.refresh_all()
 	_save()
 
@@ -231,6 +251,7 @@ func _save() -> void:
 		"stars": stars, "prestige_count": prestige_count,
 		"achievements": achievements,
 		"cars_owned": cars_owned, "cars_equipped": cars_equipped,
+		"tracks_owned": tracks_owned, "track_selected": track_selected,
 		"time": Time.get_unix_time_from_system(),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -250,10 +271,10 @@ func _load() -> void:
 	lifetime = float(d.get("lifetime", 0.0))
 	total_earned = float(d.get("total", 0.0))
 	var o: Array = d.get("owned", [0, 0, 0, 0, 0, 0])
-	for i in range(6):
+	for i in range(8):
 		owned[i] = int(o[i]) if i < o.size() else 0
 	var m: Array = d.get("mechanics", [false, false, false, false, false, false])
-	for i in range(6):
+	for i in range(8):
 		mechanics[i] = bool(m[i]) if i < m.size() else false
 	upgrades_bought = d.get("upgrades", [])
 	stars = int(d.get("stars", 0))
@@ -262,13 +283,19 @@ func _load() -> void:
 	var co: Array = d.get("cars_owned", [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false])
 	for i in range(20):
 		cars_owned[i] = bool(co[i]) if i < co.size() else (i == 0)
-	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0])
-	for i in range(6):
+	var ce: Array = d.get("cars_equipped", [0, 0, 0, 0, 0, 0, 0, 0])
+	for i in range(8):
 		cars_equipped[i] = int(ce[i]) if i < ce.size() else 0
+	var to: Array = d.get("tracks_owned", [true, false, false, false, false])
+	for i in range(5):
+		tracks_owned[i] = bool(to[i]) if i < to.size() else (i == 0)
+	track_selected = int(d.get("track_selected", 0))
+	if track_selected < 0 or track_selected >= 5:
+		track_selected = 0
 	_last_time = float(d.get("time", 0.0))
 	# migration: old saves started with 0 bays and $0 (soft-locked)
 	var total_owned := 0
-	for i in range(6):
+	for i in range(8):
 		total_owned += owned[i]
 	if total_owned == 0:
 		owned[0] = 1
