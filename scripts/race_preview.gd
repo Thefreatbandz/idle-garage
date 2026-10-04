@@ -19,6 +19,7 @@ const BAY_H := 52.0
 var _cars := []  # per generator: {mode, track_t, speed, color, bay_t, service_t, pos}
 var _smokes := []
 var _coins := []  # {pos, life}
+var _floats := []  # {pos, life, max, text}
 var _time := 0.0
 
 const CAR_COLORS := [
@@ -60,16 +61,26 @@ func _process(dt: float) -> void:
 			continue
 		match int(c["mode"]):
 			M_TRACK:
-				c["track_t"] = fmod(float(c["track_t"]) + float(c["speed"]) * boost * dt, 1.0)
-				c["pos"] = _track_pos(float(c["track_t"]))
-				c["angle"] = _track_angle(float(c["track_t"]))
+				var old_t := float(c["track_t"])
+				c["track_t"] = fmod(old_t + float(c["speed"]) * boost * dt, 1.0)
+				var new_t := float(c["track_t"])
+				c["pos"] = _track_pos(new_t)
+				c["angle"] = _track_angle(new_t)
+				# crossed the finish line -> money float!
+				if new_t < old_t and game:
+					var share: float = game.income_per_sec() / maxf(1.0, float(_owned_count()))
+					_spawn_float(_track_pos(0.0) + Vector2(0, -30), "+$%s" % BigNum.fmt(share))
+					_spawn_coins(_track_pos(0.0))
 				# randomly decide to pull in for service
 				if randf() < dt * 0.15:
 					c["mode"] = M_TO_BAY
 					c["bay_t"] = 0.0
-				# drift smoke
-				if _in_drift_zone(float(c["track_t"])) and randf() < 0.4:
-					_spawn_smoke(c["pos"])
+				# drift smoke + coin sparkle in corners
+				if _in_drift_zone(new_t):
+					if randf() < 0.4:
+						_spawn_smoke(c["pos"])
+					if randf() < dt * 2.0 and game:
+						_spawn_float(c["pos"] + Vector2(0, -24), "+$%s" % BigNum.fmt(game.income_per_sec() * 0.1))
 			M_TO_BAY:
 				c["bay_t"] = float(c["bay_t"]) + dt * 1.5
 				var bp := _bay_pos(i)
@@ -107,6 +118,10 @@ func _process(dt: float) -> void:
 		cn["life"] = float(cn["life"]) - dt
 		cn["pos"] = (cn["pos"] as Vector2) + Vector2(randf_range(-20, 20), -40) * dt
 	_coins = _coins.filter(func(cn): return float(cn["life"]) > 0.0)
+	for fl in _floats:
+		fl["life"] = float(fl["life"]) - dt
+		fl["pos"] = (fl["pos"] as Vector2) + Vector2(0, -30) * dt
+	_floats = _floats.filter(func(fl): return float(fl["life"]) > 0.0)
 	if _smokes.size() > 60:
 		_smokes = _smokes.slice(_smokes.size() - 60)
 	queue_redraw()
@@ -120,6 +135,19 @@ func _spawn_spark(p: Vector2) -> void:
 func _spawn_coins(p: Vector2) -> void:
 	for k in range(5):
 		_coins.append({"pos": p + Vector2(randf_range(-20, 20), 0), "life": 1.0, "max": 1.0})
+
+func _spawn_float(p: Vector2, text: String) -> void:
+	_floats.append({"pos": p, "life": 1.4, "max": 1.4, "text": text})
+	if _floats.size() > 20:
+		_floats.pop_front()
+
+func _owned_count() -> int:
+	var n := 0
+	if game:
+		for i in range(6):
+			if int(game.owned[i]) > 0:
+				n += 1
+	return n
 
 func _in_drift_zone(t: float) -> bool:
 	var d := t * _perimeter
@@ -204,6 +232,11 @@ func _draw() -> void:
 	for cn in _coins:
 		var ca: float = float(cn["life"]) / float(cn["max"])
 		draw_circle(cn["pos"], 5.0, Color(1.0, 0.85, 0.30, ca))
+	# floating money text
+	for fl in _floats:
+		var fa: float = float(fl["life"]) / float(fl["max"])
+		draw_string(ThemeDB.fallback_font, fl["pos"], String(fl["text"]),
+			HORIZONTAL_ALIGNMENT_CENTER, 120, 20, Color(0.45, 1.0, 0.55, fa))
 	# cars
 	if game:
 		for i in range(6):
@@ -214,11 +247,7 @@ func _draw() -> void:
 			_draw_car(c["pos"], float(c["angle"]), drifting, c["color"])
 	# status
 	var st := "WARMING UP"
-	var nowned := 0
-	if game:
-		for i in range(6):
-			if int(game.owned[i]) > 0:
-				nowned += 1
+	var nowned := _owned_count()
 	if nowned >= 6:
 		st = "FULL SEND"
 	elif nowned >= 3:
