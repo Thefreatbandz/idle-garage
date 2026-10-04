@@ -8,7 +8,6 @@ var lifetime := 0.0  # lifetime earnings (this prestige)
 var total_earned := 0.0  # all-time (for achievements)
 var owned := [1, 0, 0, 0, 0, 0]  # per generator (start with 1 oil bay!)
 var progress := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 0..1 bar progress
-var running := [false, false, false, false, false, false]  # bar active
 var mechanics := [false, false, false, false, false, false]
 var upgrades_bought := []  # indices into Economy.UPGRADES
 var stars := 0  # prestige: reputation stars
@@ -41,18 +40,13 @@ func _process(dt: float) -> void:
 			continue
 		var g: Dictionary = Economy.GENERATORS[i]
 		var t: float = g["time"]
-		# auto-run if mechanic hired, else manual tap started it
-		if mechanics[i] and not running[i]:
-			running[i] = true
-		if running[i]:
-			progress[i] += dt / t
-			if progress[i] >= 1.0:
-				progress[i] = 0.0
-				var pay := Economy.payout_per_cycle(i, owned[i], gmult, pmult)
-				earn(pay)
-				_ui.float_text(i, pay)
-				if not mechanics[i]:
-					running[i] = false
+		# bays auto-run once owned — true idle, no tapping needed
+		progress[i] += dt / t
+		if progress[i] >= 1.0:
+			progress[i] = 0.0
+			var pay := Economy.payout_per_cycle(i, owned[i], gmult, pmult) * bay_mult(i)
+			earn(pay)
+			_ui.float_text(i, pay)
 	_ui.tick(dt)
 	# autosave every 15s
 	_save_t += dt
@@ -80,18 +74,17 @@ func global_mult() -> float:
 func prestige_mult() -> float:
 	return 1.0 + float(stars) * 0.10
 
+func bay_mult(i: int) -> float:
+	# mechanic hired = +50% income for their bay
+	return 1.5 if mechanics[i] else 1.0
+
 func income_per_sec() -> float:
 	var total := 0.0
 	var gm := global_mult()
 	var pm := prestige_mult()
 	for i in range(6):
-		total += Economy.income_per_sec(i, owned[i], gm, pm)
+		total += Economy.income_per_sec(i, owned[i], gm, pm) * bay_mult(i)
 	return total
-
-func tap_generator(i: int) -> void:
-	if owned[i] > 0 and not running[i]:
-		running[i] = true
-		_ui.refresh_generators()
 
 func buy_generator(i: int) -> void:
 	var g: Dictionary = Economy.GENERATORS[i]
@@ -133,7 +126,6 @@ func do_prestige() -> void:
 	lifetime = 0.0
 	owned = [1, 0, 0, 0, 0, 0]
 	progress = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-	running = [false, false, false, false, false, false]
 	mechanics = [false, false, false, false, false, false]
 	upgrades_bought = []
 	_ui.refresh_all()

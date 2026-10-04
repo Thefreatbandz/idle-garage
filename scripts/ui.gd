@@ -164,21 +164,13 @@ func _build_bays_panel() -> void:
 		hb.add_theme_constant_override("separation", 14)
 		card.add_child(hb)
 		var g: Dictionary = Economy.GENERATORS[i]
-		# tap area (left): icon + name + progress
-		var tap := Button.new()
-		tap.custom_minimum_size = Vector2(760, 92)
-		tap.focus_mode = Control.FOCUS_NONE
-		var tbs := StyleBoxFlat.new()
-		tbs.bg_color = Color(0, 0, 0, 0)
-		tap.add_theme_stylebox_override("normal", tbs)
-		tap.add_theme_stylebox_override("hover", tbs)
-		tap.add_theme_stylebox_override("pressed", tbs)
-		tap.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-		var idx := i
-		tap.pressed.connect(func(): game.tap_generator(idx))
+		# info area (left): badge + name + progress — NOT a button anymore,
+		# so scroll-drag works everywhere except the BUY button
 		var tvb := VBoxContainer.new()
+		tvb.custom_minimum_size = Vector2(760, 92)
 		tvb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tap.add_child(tvb)
+		tvb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(tvb)
 		var name_hb := HBoxContainer.new()
 		name_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_hb.add_theme_constant_override("separation", 10)
@@ -219,16 +211,16 @@ func _build_bays_panel() -> void:
 		var info_l := _label("", 22, Vector2(0, 0), FONT_MONO, Color(1, 1, 1, 0.7))
 		info_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tvb.add_child(info_l)
-		hb.add_child(tap)
 		# buy button (right)
 		var buy := _button("BUY", Vector2(0, 0), Vector2(400, 92), 30)
 		buy.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		# reparent buy into hb (was added to self by _button)
 		remove_child(buy)
 		hb.add_child(buy)
+		var idx := i
 		buy.pressed.connect(func(): game.buy_generator(idx))
 		vb.add_child(card)
-		_cards.append({"tap": tap, "bar": bar, "info": info_l, "buy": buy, "card": card, "name": name_l})
+		_cards.append({"bar": bar, "info": info_l, "buy": buy, "card": card, "name": name_l})
 
 func _build_crew_panel() -> void:
 	var p: ScrollContainer = _panels[1]
@@ -236,7 +228,7 @@ func _build_crew_panel() -> void:
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
-	var hint := _label("Hire a mechanic to automate a bay forever.", 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7))
+	var hint := _label("Mechanics boost their bay's income by +50%.", 26, Vector2(0, 0), FONT_HUD, Color(1, 1, 1, 0.7))
 	vb.add_child(hint)
 	for i in range(6):
 		var g: Dictionary = Economy.GENERATORS[i]
@@ -416,9 +408,9 @@ func _update_hint() -> void:
 		return
 	# contextual tutorial: guide the first 5 minutes
 	if game.owned[0] <= 1 and game.cash < 50.0 and not game.mechanics[0]:
-		_hint_label.text = "TAP the Oil Change Bay to work! Earn $25 per job."
+		_hint_label.text = "Your Oil Bay works on its own. Save up, then buy more bays!"
 	elif not game.mechanics[0] and game.cash >= 150.0:
-		_hint_label.text = "Hire MARCO in the CREW tab — he'll work the bay for you, forever."
+		_hint_label.text = "Hire MARCO in the CREW tab — +50% Oil Bay income."
 	elif game.owned[1] == 0 and game.lifetime >= 500.0:
 		_hint_label.text = "Tire Shop unlocked! Buy it for bigger payouts."
 	elif game.income_per_sec() > 0 and game.upgrades_bought.is_empty() and game.cash >= 1000.0:
